@@ -113,6 +113,18 @@ extern bool proximity_check_status(void);//disable gesture when psensor is close
 extern int fts_gesture_mode_en;
 //<ASUS-BSP tyree_liu 20180109> add gesture function  ------
 
+static bool gesture_c_enabled = false;
+static bool gesture_e_enabled = false;
+static bool gesture_l_enabled = false;
+static bool gesture_m_enabled = false;
+static bool gesture_o_enabled = false;
+static bool gesture_s_enabled = false;
+static bool gesture_v_enabled = false;
+static bool gesture_w_enabled = false;
+static bool gesture_z_enabled = false;
+static bool gesture_up_enabled = false;
+static bool gesture_down_enabled = false;
+
 /*****************************************************************************
 * Global variable or extern global variabls/functions
 *****************************************************************************/
@@ -139,6 +151,40 @@ static ssize_t fts_swipe_store(struct device *dev,
 
 //<ASUS-BSP tyree_liu 20180109> add gesture function  ------
 
+// <OMNI>
+static ssize_t fts_gesture_c_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_c_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_e_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_e_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_l_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_l_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_m_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_m_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_o_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_o_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_s_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_s_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_v_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_v_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_w_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_w_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_z_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_z_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_up_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_up_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fts_gesture_down_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t fts_gesture_down_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
 /* sysfs gesture node
  *   read example: cat  fts_gesture_mode        ---read gesture mode
  *   write example:echo 01 > fts_gesture_mode   ---write gesture mode to 01
@@ -154,6 +200,18 @@ static DEVICE_ATTR(fts_swipe_mode, S_IRUGO | S_IWUSR, fts_swipe_show,
                    fts_swipe_store);
 //<ASUS-BSP tyree_liu 20180109> add gesture function  ------
 
+//<OMNI>
+static DEVICE_ATTR(fts_gesture_c_mode, S_IRUGO | S_IWUSR, fts_gesture_c_show, fts_gesture_c_store);
+static DEVICE_ATTR(fts_gesture_e_mode, S_IRUGO | S_IWUSR, fts_gesture_e_show, fts_gesture_e_store);
+static DEVICE_ATTR(fts_gesture_l_mode, S_IRUGO | S_IWUSR, fts_gesture_l_show, fts_gesture_l_store);
+static DEVICE_ATTR(fts_gesture_m_mode, S_IRUGO | S_IWUSR, fts_gesture_m_show, fts_gesture_m_store);
+static DEVICE_ATTR(fts_gesture_o_mode, S_IRUGO | S_IWUSR, fts_gesture_o_show, fts_gesture_o_store);
+static DEVICE_ATTR(fts_gesture_s_mode, S_IRUGO | S_IWUSR, fts_gesture_s_show, fts_gesture_s_store);
+static DEVICE_ATTR(fts_gesture_v_mode, S_IRUGO | S_IWUSR, fts_gesture_v_show, fts_gesture_v_store);
+static DEVICE_ATTR(fts_gesture_w_mode, S_IRUGO | S_IWUSR, fts_gesture_w_show, fts_gesture_w_store);
+static DEVICE_ATTR(fts_gesture_z_mode, S_IRUGO | S_IWUSR, fts_gesture_z_show, fts_gesture_z_store);
+static DEVICE_ATTR(fts_gesture_up_mode, S_IRUGO | S_IWUSR, fts_gesture_up_show, fts_gesture_up_store);
+static DEVICE_ATTR(fts_gesture_down_mode, S_IRUGO | S_IWUSR, fts_gesture_down_show, fts_gesture_down_store);
 /*
  *   read example: cat fts_gesture_buf        ---read gesture buf
  */
@@ -163,6 +221,17 @@ static struct attribute *fts_gesture_mode_attrs[] = {
     &dev_attr_fts_gesture_buf.attr,
     &dev_attr_fts_dclick_mode.attr,
     &dev_attr_fts_swipe_mode.attr,
+    &dev_attr_fts_gesture_c_mode.attr,
+    &dev_attr_fts_gesture_e_mode.attr,
+    &dev_attr_fts_gesture_l_mode.attr,
+    &dev_attr_fts_gesture_m_mode.attr,
+    &dev_attr_fts_gesture_o_mode.attr,
+    &dev_attr_fts_gesture_s_mode.attr,
+    &dev_attr_fts_gesture_v_mode.attr,
+    &dev_attr_fts_gesture_w_mode.attr,
+    &dev_attr_fts_gesture_z_mode.attr,
+    &dev_attr_fts_gesture_up_mode.attr,
+    &dev_attr_fts_gesture_down_mode.attr,
     NULL,
 };
 
@@ -405,6 +474,461 @@ static ssize_t fts_swipe_store(struct device *dev,
 
 //<ASUS-BSP tyree_liu 20180109> add gesture function  ------
 
+
+static ssize_t fts_gesture_c_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_c_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_c_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture c mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_c_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture c mode");
+        gesture_c_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_c_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+
+
+static ssize_t fts_gesture_e_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_e_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_e_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture e mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_e_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture e mode");
+        gesture_e_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_e_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_l_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_l_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_l_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture e mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_l_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture e mode");
+        gesture_l_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_l_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_m_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_m_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_m_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture m mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_m_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture m mode");
+        gesture_m_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_m_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_o_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_o_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_o_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture o mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_o_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture o mode");
+        gesture_o_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_m_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_s_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_s_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_s_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture s mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_s_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture m mode");
+        gesture_s_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_s_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_v_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_v_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_v_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture v mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_v_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture v mode");
+        gesture_v_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_v_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_w_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_w_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_w_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture w mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_w_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture w mode");
+        gesture_w_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_w_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_z_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_z_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_z_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture z mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_z_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture z mode");
+        gesture_z_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_m_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_up_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_up_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_up_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture up mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_up_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture up mode");
+        gesture_up_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_up_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_down_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int count;
+    u8 val;
+    struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
+    mutex_lock(&fts_data->report_mutex);
+    fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+    count = sprintf(buf, "%d\n", gesture_down_enabled);
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+static ssize_t fts_gesture_down_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    mutex_lock(&fts_data->report_mutex);
+
+    if (FTS_SYSFS_ECHO_ON(buf)) {
+        FTS_INFO("[GESTURE]enable gesture down mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        gesture_down_enabled = true;
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf)) {
+        FTS_INFO("[GESTURE]disable gesture down mode");
+        gesture_down_enabled = false;
+        if (dclick_report_flag || swipe_report_flag || gesture_down_enabled) {
+  		    fts_gesture_data.mode = ENABLE;
+  		    fts_gesture_mode_en = ENABLE;
+		    } else {
+  		    fts_gesture_data.mode = DISABLE;
+  		    fts_gesture_mode_en = DISABLE;
+		    }
+    }
+
+    mutex_unlock(&fts_data->report_mutex);
+
+    return count;
+}
+
+
 /*****************************************************************************
 *   Name: fts_gesture_report
 *  Brief:
@@ -486,7 +1010,8 @@ static void fts_gesture_report(struct input_dev *input_dev, int gesture_id)
 				}
 				break;
 		  case KEY_GESTURE_UP:
-				if (swipe_report_flag)
+//				if (swipe_report_flag)
+        if (gesture_up_enabled)
 				{
 					input_report_key(input_dev, gesture, 1);
 					input_sync(input_dev);
@@ -494,36 +1019,88 @@ static void fts_gesture_report(struct input_dev *input_dev, int gesture_id)
 					input_sync(input_dev);
 				}
 				break;
-
+      case KEY_GESTURE_DOWN:
+  //				if (swipe_report_flag)
+        if (gesture_down_enabled)
+				{
+					input_report_key(input_dev, gesture, 1);
+					input_sync(input_dev);
+					input_report_key(input_dev, gesture, 0);
+					input_sync(input_dev);
+				}
+				break;
+      case KEY_GESTURE_C:
+				if (gesture_c_enabled)
+				{
+					input_report_key(input_dev, gesture, 1);
+					input_sync(input_dev);
+					input_report_key(input_dev, gesture, 0);
+					input_sync(input_dev);
+				}
+				break;
+      case KEY_GESTURE_E:
+				//if (gesture_detect& E_SWITCH)
+        if (gesture_e_enabled)
+				{
+					input_report_key(input_dev, gesture, 1);
+					input_sync(input_dev);
+					input_report_key(input_dev, gesture, 0);
+					input_sync(input_dev);
+				}
+				break;
+      case KEY_GESTURE_L:
+				//if (gesture_detect& E_SWITCH)
+        if (gesture_l_enabled)
+				{
+					input_report_key(input_dev, gesture, 1);
+					input_sync(input_dev);
+					input_report_key(input_dev, gesture, 0);
+					input_sync(input_dev);
+				}
+				break;
+      case KEY_GESTURE_M:
+				//if (gesture_detect& E_SWITCH)
+        if (gesture_m_enabled)
+				{
+					input_report_key(input_dev, gesture, 1);
+					input_sync(input_dev);
+					input_report_key(input_dev, gesture, 0);
+					input_sync(input_dev);
+				}
+				break;
+      case KEY_GESTURE_O:
+				//if (gesture_detect& E_SWITCH)
+        if (gesture_o_enabled)
+				{
+					input_report_key(input_dev, gesture, 1);
+					input_sync(input_dev);
+					input_report_key(input_dev, gesture, 0);
+					input_sync(input_dev);
+				}
+				break;
+      case KEY_GESTURE_S:
+				//if (gesture_detect& S_SWITCH)
+        if (gesture_s_enabled)
+				{
+					input_report_key(input_dev, gesture, 1);
+					input_sync(input_dev);
+					input_report_key(input_dev, gesture, 0);
+					input_sync(input_dev);
+				}
+				break;
+      case KEY_GESTURE_V:
+				//if (gesture_detect& V_SWITCH)
+        if (gesture_v_enabled)
+				{
+					input_report_key(input_dev, gesture, 1);
+					input_sync(input_dev);
+					input_report_key(input_dev, gesture, 0);
+					input_sync(input_dev);
+				}
+				break;
 		  case KEY_GESTURE_W:
-				if (gesture_detect& W_SWITCH)
-				{
-					input_report_key(input_dev, gesture, 1);
-					input_sync(input_dev);
-					input_report_key(input_dev, gesture, 0);
-					input_sync(input_dev);
-				}
-				break;
-		  case KEY_GESTURE_S:
-				if (gesture_detect& S_SWITCH)
-				{
-					input_report_key(input_dev, gesture, 1);
-					input_sync(input_dev);
-					input_report_key(input_dev, gesture, 0);
-					input_sync(input_dev);
-				}
-				break;
-		  case KEY_GESTURE_E:
-				if (gesture_detect& E_SWITCH)
-				{
-					input_report_key(input_dev, gesture, 1);
-					input_sync(input_dev);
-					input_report_key(input_dev, gesture, 0);
-					input_sync(input_dev);
-				}
-				break;
-		  case KEY_GESTURE_C:
-				if (gesture_detect& C_SWITCH)
+				//if (gesture_detect& W_SWITCH)
+        if (gesture_w_enabled)
 				{
 					input_report_key(input_dev, gesture, 1);
 					input_sync(input_dev);
@@ -532,16 +1109,8 @@ static void fts_gesture_report(struct input_dev *input_dev, int gesture_id)
 				}
 				break;
 		  case KEY_GESTURE_Z:
-				if (gesture_detect& Z_SWITCH)
-				{
-					input_report_key(input_dev, gesture, 1);
-					input_sync(input_dev);
-					input_report_key(input_dev, gesture, 0);
-					input_sync(input_dev);
-				}
-				break;
-		  case KEY_GESTURE_V:
-				if (gesture_detect& V_SWITCH)
+				//if (gesture_detect& Z_SWITCH)
+        if (gesture_z_enabled)
 				{
 					input_report_key(input_dev, gesture, 1);
 					input_sync(input_dev);
