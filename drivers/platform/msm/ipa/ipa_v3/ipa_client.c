@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +68,8 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 		 * if DPL client is not pulling the data
 		 * on other end from IPA hw.
 		 */
-		if (ep->client == IPA_CLIENT_USB_DPL_CONS)
+		if ((ep->client == IPA_CLIENT_USB_DPL_CONS) ||
+				(ep->client == IPA_CLIENT_MHI_DPL_CONS))
 			holb_cfg.en = IPA_HOLB_TMR_EN;
 		else
 			holb_cfg.en = IPA_HOLB_TMR_DIS;
@@ -1230,7 +1231,8 @@ static int ipa3_stop_ul_chan_with_data_drain(u32 qmi_req_id,
 	if (!stop_in_proc)
 		goto exit;
 
-	if (remove_delay && ep->ep_delay_set == true) {
+	/* Remove delay only if stop channel success*/
+	if (remove_delay && ep->ep_delay_set == true && !stop_in_proc) {
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_delay = false;
 		result = ipa3_cfg_ep_ctrl(clnt_hdl,
@@ -1311,7 +1313,7 @@ disable_force_clear_and_exit:
 	if (should_force_clear)
 		ipa3_disable_force_clear(qmi_req_id);
 exit:
-	if (remove_delay && ep->ep_delay_set == true) {
+	if (remove_delay && ep->ep_delay_set == true && !stop_in_proc) {
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_delay = false;
 		result = ipa3_cfg_ep_ctrl(clnt_hdl,
@@ -1844,9 +1846,7 @@ int ipa3_clear_endpoint_delay(u32 clnt_hdl)
 	/* Set disconnect in progress flag so further flow control events are
 	 * not honored.
 	 */
-	spin_lock(&ipa3_ctx->disconnect_lock);
-	ep->disconnect_in_progress = true;
-	spin_unlock(&ipa3_ctx->disconnect_lock);
+	atomic_set(&ep->disconnect_in_progress, 1);
 
 	/* If flow is disabled at this point, restore the ep state.*/
 	ep_ctrl.ipa_ep_delay = false;

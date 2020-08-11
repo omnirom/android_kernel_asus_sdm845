@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,11 +44,13 @@
 #define BGDAEMON_LDO03_NPM_VTG 10000
 
 #define MPPS_DOWN_EVENT_TO_BG_TIMEOUT 3000
+#define ADSP_DOWN_EVENT_TO_BG_TIMEOUT 3000
 #define SLEEP_FOR_SPI_BUS 2000
 
 enum {
 	SSR_DOMAIN_BG,
 	SSR_DOMAIN_MODEM,
+	SSR_DOMAIN_ADSP,
 	SSR_DOMAIN_MAX,
 };
 
@@ -83,6 +85,7 @@ struct service_info {
 static char *ssr_domains[] = {
 	"bg-wear",
 	"modem",
+	"adsp",
 };
 
 static struct bgdaemon_priv *dev;
@@ -95,8 +98,10 @@ static  dev_t                    bg_dev;
 static  int                      device_open;
 static  void                     *handle;
 static	bool                     twm_exit;
+static	bool                     bg_app_running;
 static  struct   bgcom_open_config_type   config_type;
 static DECLARE_COMPLETION(bg_modem_down_wait);
+static DECLARE_COMPLETION(bg_adsp_down_wait);
 
 /**
  * send_uevent(): send events to user space
@@ -333,6 +338,12 @@ static int modem_down2_bg(void)
 	return 0;
 }
 
+static int adsp_down2_bg(void)
+{
+	complete(&bg_adsp_down_wait);
+	return 0;
+}
+
 static long bg_com_ioctl(struct file *filp,
 		unsigned int ui_bgcom_cmd, unsigned long arg)
 {
@@ -377,8 +388,14 @@ static long bg_com_ioctl(struct file *filp,
 	case BG_MODEM_DOWN2_BG_DONE:
 		ret = modem_down2_bg();
 		break;
+	case BG_ADSP_DOWN2_BG_DONE:
+		ret = adsp_down2_bg();
 	case BG_TWM_EXIT:
 		twm_exit = true;
+		ret = 0;
+		break;
+	case BG_APP_RUNNING:
+		bg_app_running = true;
 		ret = 0;
 		break;
 	default:
@@ -579,7 +596,29 @@ static int ssr_modem_cb(struct notifier_block *this,
 	}
 	return NOTIFY_DONE;
 }
+static int ssr_adsp_cb(struct notifier_block *this,
+		unsigned long opcode, void *data)
+{
+	struct bg_event adspe;
+	int ret;
 
+	switch (opcode) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		adspe.e_type = ADSP_BEFORE_POWER_DOWN;
+		reinit_completion(&bg_adsp_down_wait);
+		send_uevent(&adspe);
+		ret = wait_for_completion_timeout(&bg_adsp_down_wait,
+			msecs_to_jiffies(ADSP_DOWN_EVENT_TO_BG_TIMEOUT));
+		if (!ret)
+			pr_err("Time out on adsp down event\n");
+		break;
+	case SUBSYS_AFTER_POWERUP:
+		adspe.e_type = ADSP_AFTER_POWER_UP;
+		send_uevent(&adspe);
+		break;
+	}
+	return NOTIFY_DONE;
+}
 bool is_twm_exit(void)
 {
 	if (twm_exit) {
@@ -590,8 +629,23 @@ bool is_twm_exit(void)
 }
 EXPORT_SYMBOL(is_twm_exit);
 
+bool is_bg_running(void)
+{
+	if (bg_app_running) {
+		bg_app_running = false;
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(is_bg_running);
+
 static struct notifier_block ssr_modem_nb = {
 	.notifier_call = ssr_modem_cb,
+	.priority = 0,
+};
+
+static struct notifier_block ssr_adsp_nb = {
+	.notifier_call = ssr_adsp_cb,
 	.priority = 0,
 };
 
@@ -600,7 +654,7 @@ static struct notifier_block ssr_bg_nb = {
 	.priority = 0,
 };
 
-static struct service_info service_data[2] = {
+static struct service_info service_data[3] = {
 	{
 		.name = "SSR_BG",
 		.domain_id = SSR_DOMAIN_BG,
@@ -611,6 +665,12 @@ static struct service_info service_data[2] = {
 		.name = "SSR_MODEM",
 		.domain_id = SSR_DOMAIN_MODEM,
 		.nb = &ssr_modem_nb,
+		.handle = NULL,
+	},
+	{
+		.name = "SSR_ADSP",
+		.domain_id = SSR_DOMAIN_ADSP,
+		.nb = &ssr_adsp_nb,
 		.handle = NULL,
 	},
 };

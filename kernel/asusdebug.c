@@ -40,6 +40,7 @@ phys_addr_t PRINTK_BUFFER_PA;
 ulong PRINTK_BUFFER_SIZE;
 void *PRINTK_BUFFER_VA;
 extern struct timezone sys_tz;
+extern char asus_build_ver[64];
 #define RT_MUTEX_HAS_WAITERS	1UL
 #define RT_MUTEX_OWNER_MASKALL	1UL
 struct mutex fake_mutex;
@@ -295,7 +296,7 @@ void print_all_thread_info(void) {
     printk("%s %u  g_phonehang_log=%p\n", __FUNCTION__, __LINE__, g_phonehang_log);
     memset_nc(g_phonehang_log, 0, PHONE_HANG_LOG_SIZE);
 
-    save_log("PhoneHang-%04d%02d%02d-%02d%02d%02d.txt  ---  ASUS_SW_VER : %s----------------------------------------------\r\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, ASUS_SW_VER);
+    save_log("PhoneHang-%04d%02d%02d-%02d%02d%02d.txt  ---  asus_build_ver : %s----------------------------------------------\r\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, asus_build_ver);
     save_log(" pID----ppID----NAME----------------SumTime---vruntime--SPri-NPri-State----------PmpCnt-Binder----Waiting\r\n");
 
     for_each_process(pts)
@@ -388,7 +389,7 @@ void save_all_thread_info(void)
     memset_nc(g_phonehang_log, 0, PHONE_HANG_LOG_SIZE);
 
 	printk("g_phonehang_log=%p\n", (void*)g_phonehang_log);
-    save_log("ASUSSlowg-%04d%02d%02d-%02d%02d%02d.txt  ---  ASUS_SW_VER : %s----------------------------------------------\r\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, ASUS_SW_VER);
+    save_log("ASUSSlowg-%04d%02d%02d-%02d%02d%02d.txt  ---  asus_build_ver : %s----------------------------------------------\r\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, asus_build_ver);
     save_log(" pID----ppID----NAME----------------SumTime---vruntime--SPri-NPri-State----------PmpCnt-binder----Waiting\r\n");
 
 
@@ -524,8 +525,8 @@ void delta_all_thread_info(bool call_alone)
 			memset(ptis_head, 0, sizeof( struct thread_info_save));
 		}
 		
-		 save_log("ASUSSlowg-%04d%02d%02d-%02d%02d%02d.txt  ---  ASUS_SW_VER : %s----------------------------------------------\r\n", 
-						tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, ASUS_SW_VER);
+		 save_log("ASUSSlowg-%04d%02d%02d-%02d%02d%02d.txt  ---  asus_build_ver : %s----------------------------------------------\r\n", 
+						tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, asus_build_ver);
 	}
 	
     save_log("\r\nDELTA INFO----------------------------------------------------------------------------------------------\r\n");
@@ -584,7 +585,7 @@ void save_phone_hang_log(void)
         memset(messages, 0, sizeof(messages));
         strcpy(messages, ASUS_ASDF_BASE_DIR);
         strncat(messages, g_phonehang_log, 29);
-        file_handle = sys_open(messages, O_CREAT|O_WRONLY|O_SYNC, 0666);
+        file_handle = sys_open(messages, O_CREAT|O_WRONLY|O_SYNC, 0);
         printk("[ASDF]save_phone_hang_log-2 file_handle %d, name=%s\n", file_handle, messages);
         if(!IS_ERR((const void *)(ulong)file_handle))
         {
@@ -621,7 +622,7 @@ void save_last_shutdown_log(char* filename)
 				nanosec_rem / 1000);
 
     initKernelEnv();
-    file_handle = sys_open(messages, O_CREAT|O_RDWR|O_SYNC, 0666);
+    file_handle = sys_open(messages, O_CREAT|O_RDWR|O_SYNC, 0);
     if(!IS_ERR((const void *)(ulong)file_handle))
     {
 		int len = min((int)strlen(last_shutdown_log), (int)PRINTK_BUFFER_SLOT_SIZE);
@@ -711,7 +712,7 @@ static struct mutex mA_erc;
 int boot_delay_complete = 0;
 extern bool g_asus_recovery_mode;
 extern bool g_charger_mode;
-extern char build_version[64] ;
+
 static void do_write_event_worker(struct work_struct *work)
 {
 	char buffer[256];
@@ -764,9 +765,7 @@ static void do_write_event_worker(struct work_struct *work)
 		{
 			sprintf(bootmode,"%s","ANDROID");
 		}
-		sprintf(buffer, "\n\n---------------System Boot----%s---%s\n", bootmode,build_version);
-		//sprintf(buffer, "\n\n---------------System Boot----%s---%s\n", bootmode,ASUS_SW_VER);
-
+		sprintf(buffer, "\n\n---------------System Boot----%s---%s\n", bootmode,asus_build_ver);
 		sys_write(g_hfileEvtlog, buffer, strlen(buffer));
 
 		sys_fsync(g_hfileEvtlog);

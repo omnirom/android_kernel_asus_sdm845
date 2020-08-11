@@ -84,11 +84,6 @@ static struct wakeup_source deleted_ws = {
 	.lock =  __SPIN_LOCK_UNLOCKED(deleted_ws.lock),
 };
 
-#ifdef ASUS_FACTORY_BUILD
- extern unsigned char fac_wakeup_sign;
-#endif
-
-
 /**
  * wakeup_source_prepare - Prepare a new wakeup source for initialization.
  * @ws: Wakeup source to prepare.
@@ -135,7 +130,6 @@ void wakeup_source_drop(struct wakeup_source *ws)
 	if (!ws)
 		return;
 
-	del_timer_sync(&ws->timer);
 	__pm_relax(ws);
 }
 EXPORT_SYMBOL_GPL(wakeup_source_drop);
@@ -223,6 +217,13 @@ void wakeup_source_remove(struct wakeup_source *ws)
 	list_del_rcu(&ws->entry);
 	spin_unlock_irqrestore(&events_lock, flags);
 	synchronize_srcu(&wakeup_srcu);
+
+	del_timer_sync(&ws->timer);
+	/*
+	 * Clear timer.function to make wakeup_source_not_registered() treat
+	 * this wakeup source as not registered.
+	 */
+	ws->timer.function = NULL;
 }
 EXPORT_SYMBOL_GPL(wakeup_source_remove);
 
@@ -573,10 +574,10 @@ static void wakeup_source_activate(struct wakeup_source *ws)
  */
 static void wakeup_source_report_event(struct wakeup_source *ws)
 {
-		ws->event_count++;
-		/* This is racy, but the counter is approximate anyway. */
-		if (events_check_enabled)
-			ws->wakeup_count++;
+	ws->event_count++;
+	/* This is racy, but the counter is approximate anyway. */
+	if (events_check_enabled)
+		ws->wakeup_count++;
 
 	if (!ws->active)
 		wakeup_source_activate(ws);
@@ -591,11 +592,6 @@ static void wakeup_source_report_event(struct wakeup_source *ws)
 void __pm_stay_awake(struct wakeup_source *ws)
 {
 	unsigned long flags;
-
-#ifdef ASUS_FACTORY_BUILD
-	if(fac_wakeup_sign && ws && strcmp(ws->name,"adc_check_Lock") != 0)
-		return;
-#endif
 
 	if (!ws)
 		return;
@@ -906,7 +902,7 @@ void pm_print_active_wakeup_sources(void)
 	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
 		if (ws->active) {
 			pr_info("active wakeup source: %s\n", ws->name);
-				active = 1;
+			active = 1;
 		} else if (!active &&
 			   (!last_activity_ws ||
 			    ktime_to_ns(ws->last_time) >
@@ -1027,6 +1023,7 @@ void pm_wakeup_clear(void)
 	pm_wakeup_irq = 0;
 }
 
+extern bool display_early_on;
 void pm_system_irq_wakeup(unsigned int irq_number)
 {
 	struct irq_desc *desc;
@@ -1040,8 +1037,12 @@ void pm_system_irq_wakeup(unsigned int irq_number)
 			else if (desc->action && desc->action->name)
 				name = desc->action->name;
 
-			pr_warn("%s: %d triggered %s\n", __func__,
-					irq_number, name);
+			display_early_on = false;
+			if (!strcmp(name, "gf")  || !strcmp(name, "qpnp_kpdpwr_status"))
+				display_early_on = true;
+
+			pr_warn("%s: %d triggered %s,display_early_on=%d\n", __func__,
+					irq_number, name,display_early_on);
 
 		}
 		log_wakeup_reason(irq_number);//framework will check /sys/kernel/wakeup_reasons/last_resume_reason
@@ -1229,22 +1230,6 @@ static int wakeup_sources_stats_show(struct seq_file *m, void *unused)
 
 	return 0;
 }
-
-#ifdef ASUS_FACTORY_BUILD
-void release_wakeup_source(void)
-{
-	struct wakeup_source *ws;
-
-	rcu_read_lock();
-	list_for_each_entry_rcu(ws, &wakeup_sources, entry)
-		if (ws->active && strcmp(ws->name,"adc_check_Lock") != 0) {
-			printk(KERN_ERR"[factool log]release wakeup source:%s\n",ws->name);
-			wake_unlock((struct wake_lock*)ws);
-		}
-	rcu_read_unlock();
-}
-EXPORT_SYMBOL_GPL(release_wakeup_source);
-#endif
 
 static int wakeup_sources_stats_open(struct inode *inode, struct file *file)
 {

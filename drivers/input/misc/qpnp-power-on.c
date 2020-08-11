@@ -35,8 +35,9 @@
 #include <linux/qpnp/qpnp-misc.h>
 #include <linux/power_supply.h>
 
-// ASUS_BSP +++
 #include <linux/uaccess.h>
+
+// ASUS_BSP +++
 u16 warm_reset_value;
 char evtlog_bootup_reason[100];
 char evtlog_poweroff_reason[100];
@@ -45,8 +46,6 @@ char evtlog_pm_0_bootup_reason[80];
 char evtlog_pm_1_bootup_reason[80];
 #define SPMI_PM845	0
 #define QPNP_GEN2_POFF_SEQ_NORMAL	0
-
-
 // ASUS_BSP ---
 
 #define PMIC_VER_8941           0x01
@@ -327,6 +326,35 @@ static const char * const qpnp_poff_reason[] = {
 	[39] = "Triggered from S3_RESET_KPDPWR_ANDOR_RESIN (power key and/or reset line)",
 };
 
+//bsp add guochang_qiu+++
+void asus_dump_bootup_reason(char *bootup_reason)
+{
+	char buffer[255];
+
+	if(!bootup_reason){
+		pr_err("bootup_reason is NULL!\n");
+		return ;
+	}
+
+	if(warm_reset_value){
+		snprintf(buffer, sizeof(buffer),
+			"[Reboot] Warm reset Reason: %s ###### \n"
+			"###### Bootup Reason: %s ######\n",
+			evtlog_warm_reset_reason,
+			evtlog_bootup_reason);
+
+	}else{
+		snprintf(buffer, sizeof(buffer),
+			"[Shutdown] Power off Reason: %s ###### \n"
+			"###### Bootup Reason: %s ######\n",
+			evtlog_poweroff_reason,
+			evtlog_bootup_reason);
+	}
+
+	strcpy(bootup_reason, buffer);
+}
+//bsp add guochang_qiu---
+
 void asus_dump_boot_reason_regs(char *boot_reason_regs)
 {
 	char buffer[255];
@@ -402,38 +430,6 @@ const char * const asus_pon_reason[] = {
 	[6] = "[CBL] (external power supply);",
 	[7] = "[KPD] (power key press);",
 };
-
-
-//bsp add guochang_qiu+++
-void asus_dump_bootup_reason(char *bootup_reason)
-{
-	char buffer[255];
-
-	if(!bootup_reason){
-		pr_err("bootup_reason is NULL!\n");
-		return ;
-	}
-
-	if(warm_reset_value){
-		snprintf(buffer, sizeof(buffer),
-			"[Reboot] Warm reset Reason: %s ###### \n"
-			"###### Bootup Reason: %s ######\n",
-			evtlog_warm_reset_reason,
-			evtlog_bootup_reason);
-
-	}else{
-		snprintf(buffer, sizeof(buffer),
-			"[Shutdown] Power off Reason: %s ###### \n"
-			"###### Bootup Reason: %s ######\n",
-			evtlog_poweroff_reason,
-			evtlog_bootup_reason);
-	}
-
-	strcpy(bootup_reason, buffer);
-}
-//bsp add guochang_qiu---
-
-
 
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
@@ -1280,9 +1276,9 @@ void wait_for_power_key_6s_work(struct work_struct *work)
 			//set_vib_enable(200);
 			msleep(200);
 
-			asus_global.ramdump_enable_magic = 0;
-			printk(KERN_CRIT "asus_global.ramdump_enable_magic = 0x%x\n",
-					asus_global.ramdump_enable_magic);
+			//asus_global.ramdump_enable_magic = 0;
+			//printk(KERN_CRIT "asus_global.ramdump_enable_magic = 0x%x\n",
+			//		asus_global.ramdump_enable_magic);
 			printk("force reset device!!\n");
 			kernel_restart("asdf");
 		}
@@ -1291,7 +1287,6 @@ void wait_for_power_key_6s_work(struct work_struct *work)
 	}
 }
 /* ASUS_BSP + [ASDF]long press power key 6sec,reset device.. -- */
-
 static int
 qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 {
@@ -1603,7 +1598,7 @@ void wait_for_slowlog_work(struct work_struct *work)
 			//duration = (jiffies - startime)*10/HZ;
 			//printk("start to gi delta after power press %d.%d sec (%d)\n",
 			//		duration/10, duration%10, i);
-			delta_all_thread_info(1);
+			//delta_all_thread_info(1);
 			save_phone_hang_log();
 			slow_ok = 1;
 		}

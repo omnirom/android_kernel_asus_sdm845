@@ -546,6 +546,7 @@ void asp1690_enable(bool enable)
         }
     }
 }
+EXPORT_SYMBOL(asp1690_enable);
 
 #define ASUS_ASP1690_PROC_FILE "driver/asp1690_Status"
 

@@ -153,6 +153,62 @@ int fts_enter_glove_mode( struct i2c_client *client, int mode)
 */
 static DEVICE_ATTR (fts_glove_mode,  S_IRUGO | S_IWUSR, fts_touch_glove_show, fts_touch_glove_store);
 
+//asus_bsp add for gesture proc node +++
+static ssize_t gesture_glove_proc_write(struct file *filp, const char __user *buff, size_t len, loff_t *off){
+    int ret;
+    char msg[256];
+    struct fts_ts_data *ts_data = fts_data;
+    struct i2c_client *client;
+    client = ts_data->client;
+
+	memset(msg, 0, sizeof(msg));
+	if (len > 256)
+		len = 256;
+	if (copy_from_user(msg, buff, len))
+		return -EFAULT;
+
+	if (strncmp(msg, "1", 1) == 0) {
+		if (!g_fts_mode_flag.fts_glove_mode_flag) {
+            FTS_INFO("[Mode]enter glove mode");
+            ret = fts_enter_glove_mode(client, true);
+            if (ret >= 0) {
+                g_fts_mode_flag.fts_glove_mode_flag = true;
+            }
+        }
+	} else if(strncmp(msg, "0", 1) == 0) {
+		if (g_fts_mode_flag.fts_glove_mode_flag) {
+            FTS_INFO("[Mode]exit glove mode");
+            ret = fts_enter_glove_mode(client, false);
+            if (ret >= 0) {
+                g_fts_mode_flag.fts_glove_mode_flag = false;
+            }
+        }
+	}
+    FTS_INFO("[Mode]glove mode status:  %d", g_fts_mode_flag.fts_glove_mode_flag);
+	return len;
+}
+
+static ssize_t gesture_glove_proc_read(struct file *filp, char __user *buff, size_t len, loff_t *off){
+    char msg[256];
+
+    if (*off)
+        return 0;
+    memset(msg, 0, sizeof(msg));
+    if (len > 256)
+        len = 256;
+
+    sprintf(msg, "%d\n",g_fts_mode_flag.fts_glove_mode_flag ? 1 : 0);
+    if (copy_to_user(buff, msg, len))
+        return -EFAULT;
+
+    (*off)++;
+    return len;
+}
+static struct file_operations gesture_glove_proc_ops = {
+      .write = gesture_glove_proc_write,
+      .read = gesture_glove_proc_read,
+};
+//asus_bsp add for gesture proc node ---
 #endif
 
 #if FTS_COVER_EN
@@ -356,6 +412,8 @@ int fts_ex_mode_init(struct i2c_client *client)
     } else {
         FTS_DEBUG("[Mode]create sysfs succeeded");
     }
+    //asus_bsp add for gesture proc node
+    proc_create("driver/glove", 0666, NULL, &gesture_glove_proc_ops);
 
     return err;
 

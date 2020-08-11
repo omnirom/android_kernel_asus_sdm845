@@ -70,6 +70,7 @@
 #include "ebitmap.h"
 #include "audit.h"
 
+int selinux_android_netlink_route;
 int selinux_policycap_netpeer;
 int selinux_policycap_openperm;
 int selinux_policycap_alwaysnetwork;
@@ -1990,6 +1991,9 @@ static void security_load_policycaps(void)
 						  POLICYDB_CAPABILITY_OPENPERM);
 	selinux_policycap_alwaysnetwork = ebitmap_get_bit(&policydb.policycaps,
 						  POLICYDB_CAPABILITY_ALWAYSNETWORK);
+
+	selinux_android_netlink_route = policydb.android_netlink_route;
+	selinux_nlmsg_init();
 }
 
 static int security_preserve_bools(struct policydb *p);
@@ -2640,6 +2644,26 @@ int security_get_aps()
 	return security_get_ps(DAPS_TYPE);
 }
 
+
+#define SAVELOG_DOMAIN "asuslogtool-scripts"
+int security_set_asus(int value)
+{
+	int rc = 0;
+
+	if(security_set_ps(SAVELOG_DOMAIN, value)){
+		printk("SELinux: asuslogtool-scripts enable\n");
+		rc = 1;
+	}
+
+
+	return rc;
+}
+
+int security_get_asus()
+{
+	return security_get_ps(SAVELOG_DOMAIN);
+}
+
 int security_get_bools(int *len, char ***names, int **values)
 {
 	int i, rc;
@@ -2679,8 +2703,12 @@ err:
 	if (*names) {
 		for (i = 0; i < *len; i++)
 			kfree((*names)[i]);
+		kfree(*names);
 	}
 	kfree(*values);
+	*len = 0;
+	*names = NULL;
+	*values = NULL;
 	goto out;
 }
 

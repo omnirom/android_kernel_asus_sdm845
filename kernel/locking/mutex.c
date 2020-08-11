@@ -479,14 +479,15 @@ void __sched ww_mutex_unlock(struct ww_mutex *lock)
 		lock->ctx = NULL;
 	}
 
-#ifndef CONFIG_DEBUG_MUTEXES
+//#ifndef CONFIG_DEBUG_MUTEXES
 	/*
 	 * When debugging is enabled we must not clear the owner before time,
 	 * the slow path will always be taken, and that clears the owner field
 	 * after verifying that it was indeed current.
 	 */
+	//mutex_clear_owner(&lock->base);
+//#endif
 	mutex_clear_owner(&lock->base);
-#endif
 	__mutex_fastpath_unlock(&lock->base.count, __mutex_unlock_slowpath);
 }
 EXPORT_SYMBOL(ww_mutex_unlock);

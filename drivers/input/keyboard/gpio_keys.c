@@ -771,67 +771,6 @@ gpio_keys_get_devtree_pdata(struct device *dev)
 
 #endif
 
-#ifdef ASUS_FACTORY_BUILD//add by stone1_wang for factory build +++
-ssize_t printklog_write (struct file *filp, const char __user *userbuf, size_t size, loff_t *loff_p)
-{
-	char str[128];
-	memset(str, 0, sizeof(str));
-
-	if(size > 127)
-		size = 127;
-
-	if (copy_from_user(str, userbuf, size))
-	{
-		pr_err("copy from bus failed!\n");
-		return -EFAULT;
-	}
-
-	printk(KERN_ERR"[factool log]:%s",str);
-	return size;
-}
-
-struct file_operations printklog_fops = {
-	.write=printklog_write,
-};
-unsigned char fac_wakeup_sign = 0;
-extern void release_wakeup_source(void);
-extern void alarm_irq_disable(int);
-ssize_t fac_sleep_node_write(struct file *filp, const char __user *userbuf, size_t size, loff_t *loff_p)
-{
-	char messages[10];
-	int value = -1;
-	memset(messages, 0, sizeof(messages));
-
-	if(size > 10)
-		size = 10;
-
-	if (copy_from_user(messages, userbuf, size))
-	{
-		pr_err("copy from bus failed!\n");
-		return -EFAULT;
-	}
-
-	value = (int)simple_strtol(messages, NULL, 10);
-
-	switch(value) {
-		case 0:
-			fac_wakeup_sign = 0;
-			alarm_irq_disable(value);
-			break;
-		case 1:
-			fac_wakeup_sign = 1;
-			release_wakeup_source();
-			alarm_irq_disable(value);
-			break;
-	}
-	printk("%s:value=%d\n", __func__, value);
-	return size;
-}
-struct file_operations fac_sleep_node_fops = {
-	.write=fac_sleep_node_write,
-};
-#endif//add by stone1_wang for factory builds ---
-
 static int gpio_keys_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -932,18 +871,6 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, wakeup);
-
-#ifdef ASUS_FACTORY_BUILD//add by stone1_wang for factory build +++
-	if(proc_create("fac_printklog", 0777, NULL, &printklog_fops)==NULL)
-	{
-		printk(KERN_ERR"create printklog node is error\n");
-	}
-	if(proc_create("fac_sleep_node", 0777, NULL, &fac_sleep_node_fops)==NULL)
-	{
-		printk(KERN_ERR"create fac_sleep_node is error\n");
-	}
-#endif//add by stone1_wang for factory build ---
-
 	printk("[KEY][gpio_keys] gpio_keys_probe() ---\n");
 	
 	return 0;
@@ -989,7 +916,7 @@ static int gpio_keys_suspend(struct device *dev)
 			return ret;
 		}
 	}
-
+	
 	if (device_may_wakeup(dev)) {
 		for (i = 0; i < ddata->pdata->nbuttons; i++) {
 			struct gpio_button_data *bdata = &ddata->data[i];
@@ -1012,7 +939,7 @@ static int gpio_keys_resume(struct device *dev)
 	struct input_dev *input = ddata->input;
 	int error = 0;
 	int i;
-	
+
 	if (ddata->key_pinctrl) {
 		error = gpio_keys_pinctrl_configure(ddata, true);
 		if (error) {
@@ -1020,7 +947,7 @@ static int gpio_keys_resume(struct device *dev)
 			return error;
 		}
 	}
-
+	
 	if (device_may_wakeup(dev)) {
 		for (i = 0; i < ddata->pdata->nbuttons; i++) {
 			struct gpio_button_data *bdata = &ddata->data[i];

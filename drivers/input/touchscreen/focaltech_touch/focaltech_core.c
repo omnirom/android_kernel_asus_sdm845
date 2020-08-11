@@ -66,8 +66,8 @@ bool FOCAL_TOUCH_DISABLE = false;
 extern char* dsi_panel_id;
 
 //<ASUS-BSP Robert_He 20170608> disable touch when proximity is close in call ++++++
-extern bool focal_psensor_disable_touch;
-extern int audio_device;
+//extern bool focal_psensor_disable_touch;
+//extern int audio_device;
 //<ASUS-BSP Robert_He 20170608> disable touch when proximity is close in call ------
 extern int fts_gesture_mode_en;
 
@@ -764,10 +764,10 @@ static int fts_input_report_b(struct fts_ts_data *data)
         if (EVENT_DOWN(events[i].flag)) {
 
             //FTS_DEBUG("report focal_psensor_disable_touch(%d).", focal_psensor_disable_touch);
-            if ( focal_psensor_disable_touch && (1 == audio_device) )
-            {
-                FTS_DEBUG("Disable touch when proximity is close in earpiece\n");
-            } else {
+            //if ( focal_psensor_disable_touch && (1 == audio_device) )
+            //{
+            //    FTS_DEBUG("Disable touch when proximity is close in earpiece\n");
+            //} else {
                 input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, true);
 
 #if FTS_REPORT_PRESSURE_EN
@@ -789,7 +789,7 @@ static int fts_input_report_b(struct fts_ts_data *data)
 
                 //FTS_DEBUG("[B]P%d(%d, %d)[p:%d,tm:%d] DOWN!", events[i].id, events[i].x,
                 //          events[i].y, events[i].p, events[i].area);
-            }
+            //}
         } else {
             uppoint++;
             input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, false);
@@ -1785,7 +1785,6 @@ static int fts_ts_suspend(struct device *dev)
         ts_data->suspended = true;
         fts_release_all_finger();
         //fts_reset_proc(200);
-        focal_psensor_disable_touch = false;
         FTS_INFO("fts_gesture_suspend() success, return 0");
         return 0;
     }
@@ -1818,8 +1817,8 @@ static int fts_ts_suspend(struct device *dev)
 #endif
 
     ts_data->suspended = true;
-    focal_psensor_disable_touch = false;
-    FTS_DEBUG("focal_psensor_disable_touch(%d).", focal_psensor_disable_touch);
+    //focal_psensor_disable_touch = false;
+    //FTS_DEBUG("focal_psensor_disable_touch(%d).", focal_psensor_disable_touch);
     FTS_FUNC_EXIT();
     return 0;
 }

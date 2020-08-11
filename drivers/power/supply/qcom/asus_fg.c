@@ -1205,6 +1205,42 @@ int check_sdcard_file_ok(void)
 	return rc;
 }
 
+static int backup_bat_safety(void)
+{
+	char buf[70]={0};
+	int rc;
+	int i, temp;
+	int cycle_count[3] = {0};
+
+	/* Calculate cycle count */
+	for(i = 0; i<3; i++) {
+		temp = g_cycle_count_data.charge_cap_accum[i];
+		cycle_count[i] = DIV_ROUND_CLOSEST(temp * 100 * 10, 256 * g_full_cycle_thresh);
+	}
+
+    if(cycle_count[0]%10 >= 5){
+        cycle_count[0]= cycle_count[0]/10+1;
+    }else{
+        cycle_count[0]= cycle_count[0]/10;
+    }
+
+
+	sprintf(buf, "%lu,%d,%lu,%lu,%lu\n", 
+		g_cycle_count_data.bat_time_accum.item.battery_total_time, 
+		cycle_count[0], 
+		g_cycle_count_data.bat_time_accum.item.high_temp_total_time, 
+		g_cycle_count_data.bat_time_accum.item.high_vol_total_time,
+		g_cycle_count_data.bat_time_accum.item.high_temp_vol_time);		
+
+	rc = file_op(BAT_SAFETY_FILE_NAME, CYCLE_COUNT_DATA_OFFSET,
+		(char *)&buf, sizeof(char)*70, FILE_OP_WRITE);
+	if(rc<0)
+		pr_err("%s:Write file:%s err!\n", __FUNCTION__, BAT_SAFETY_FILE_NAME);
+
+	return rc;
+}
+
+
 int asus_backup_batinfo_to_sdcard(void)
 {
 	char *buf = NULL;
@@ -1229,7 +1265,9 @@ int asus_backup_batinfo_to_sdcard(void)
 		pr_err("%s:write %s failed!\n", __func__, BACKUP_BATINFO_NAME);
 		goto ERROR;
 	}
-
+	
+	backup_bat_safety();
+	
 ERROR:
 	kfree(buf);
 	buf = NULL;
@@ -1990,8 +2028,14 @@ static int backup_bat_health(void)
 
 	bat_health = g_bat_health_data.bat_health;
 
+	g_health_upgrade_index = g_bat_health_data_backup[0].health;
+
 	if(g_health_upgrade_index == BAT_HEALTH_NUMBER_MAX-1){
-		g_health_upgrade_index = 1;
+		g_health_upgrade_index = BAT_HEALTH_NUMBER_MAX-1;
+		for(i=1;i<BAT_HEALTH_NUMBER_MAX;i++){
+			strcpy(g_bat_health_data_backup[i-1].date, g_bat_health_data_backup[i].date);
+			g_bat_health_data_backup[i-1].health = g_bat_health_data_backup[i].health;
+		}
 	}else{
 		g_health_upgrade_index++;
 	}
@@ -2023,6 +2067,7 @@ static int backup_bat_health(void)
 	health_t = bat_health_accumulate*10/count;
 	g_bat_health_avg = (int)(health_t + 5)/10;
 	g_bat_health_data_backup[g_health_upgrade_index].health = g_bat_health_avg;
+
 
 	rc = file_op(CYCLE_COUNT_FILE_NAME, BAT_HEALTH_DATA_OFFSET1,
 		(char *)&g_bat_health_data_backup, sizeof(struct BAT_HEALTH_DATA_BACKUP)*BAT_HEALTH_NUMBER_MAX, FILE_OP_WRITE);

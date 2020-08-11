@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -525,9 +525,49 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 /********************
  * HELPER FUNCTIONS *
  ********************/
+
+int smblib_force_ufp(struct smb_charger *chg)
+{
+	int rc;
+
+	/* force FSM in IDLE state */
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+			TYPEC_DISABLE_CMD_BIT, TYPEC_DISABLE_CMD_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't put FSM in idle rc=%d\n", rc);
+		return rc;
+	}
+
+	/* wait for FSM to enter idle state */
+	msleep(200);
+
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+			VCONN_EN_VALUE_BIT | UFP_EN_CMD_BIT, UFP_EN_CMD_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't force UFP mode rc=%d\n", rc);
+		return rc;
+	}
+
+	/* wait for mode change before enabling FSM */
+	usleep_range(10000, 11000);
+
+	/* release FSM from idle state */
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+			TYPEC_DISABLE_CMD_BIT, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't release FSM from idle rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int smblib_request_dpdm(struct smb_charger *chg, bool enable)
 {
 	int rc = 0;
+
+	if (chg->pr_swap_in_progress)
+		return 0;
 
 	if (chg->pr_swap_in_progress) {
 		return rc;
@@ -1201,6 +1241,11 @@ static int __smblib_set_prop_typec_power_role(struct smb_charger *chg,
 		return -EINVAL;
 	}
 
+	if (power_role != TYPEC_DISABLE_CMD_BIT) {
+		if (chg->ufp_only_mode)
+			power_role = UFP_EN_CMD_BIT;
+	}
+
 	if (chg->wa_flags & TYPEC_PBS_WA_BIT) {
 		if (power_role == UFP_EN_CMD_BIT) {
 			/* disable PBS workaround when forcing sink mode */
@@ -1220,7 +1265,7 @@ static int __smblib_set_prop_typec_power_role(struct smb_charger *chg,
 	}
 
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-				 TYPEC_POWER_ROLE_CMD_MASK, power_role);
+				TYPEC_POWER_ROLE_CMD_MASK, power_role);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
 			power_role, rc);
@@ -1717,7 +1762,7 @@ static int _smblib_vbus_regulator_enable(struct regulator_dev *rdev)
 
 	smblib_dbg(chg, PR_OTG, "enabling OTG\n");
 
-	if (chg->wa_flags & OTG_WA) {
+	if ((chg->wa_flags & OTG_WA) && (!chg->reddragon_ipc_wa)) {
 		rc = smblib_enable_otg_wa(chg);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't enable OTG rc=%d\n", rc);
@@ -3025,6 +3070,10 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 			if (rc < 0)
 				return rc;
 		}
+	} else if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB &&
+		usb_current == -ETIMEDOUT) {
+		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
+					true, USBIN_100MA);
 	} else {
 		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
 					true, usb_current);
@@ -3127,6 +3176,7 @@ static int __smblib_set_prop_pd_active(struct smb_charger *chg, bool pd_active)
 
 	chg->pd_active = pd_active;
 	if (chg->pd_active) {
+		chg->real_charger_type = POWER_SUPPLY_TYPE_USB_PD;
 		vote(chg->apsd_disable_votable, PD_VOTER, true, 0);
 		vote(chg->pd_allowed_votable, PD_VOTER, true, 0);
 		vote(chg->usb_irq_enable_votable, PD_VOTER, true, 0);
@@ -3185,7 +3235,7 @@ static int __smblib_set_prop_pd_active(struct smb_charger *chg, bool pd_active)
 
 		hvdcp = stat & QC_CHARGER_BIT;
 		vote(chg->apsd_disable_votable, PD_VOTER, false, 0);
-		vote(chg->pd_allowed_votable, PD_VOTER, true, 0);
+		vote(chg->pd_allowed_votable, PD_VOTER, false, 0);
 		vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
 		vote(chg->hvdcp_disable_votable_indirect, PD_INACTIVE_VOTER,
 								false, 0);
@@ -3782,8 +3832,17 @@ void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 	vbus_rising = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
 
 	if (vbus_rising) {
+		/* Remove FCC_STEPPER 1.5A init vote to allow FCC ramp up */
+		if (chg->fcc_stepper_enable)
+			vote(chg->fcc_votable, FCC_STEPPER_VOTER, false, 0);
+
 		smblib_cc2_sink_removal_exit(chg);
 	} else {
+		/* Force 1500mA FCC on USB removal if fcc stepper is enabled */
+		if (chg->fcc_stepper_enable)
+			vote(chg->fcc_votable, FCC_STEPPER_VOTER,
+							true, 1500000);
+
 		smblib_cc2_sink_removal_enter(chg);
 		if (chg->wa_flags & BOOST_BACK_WA) {
 			data = chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data;
@@ -3835,6 +3894,10 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		if (rc < 0)
 			smblib_err(chg, "Couldn't to enable DPDM rc=%d\n", rc);
 
+		/* Remove FCC_STEPPER 1.5A init vote to allow FCC ramp up */
+		if (chg->fcc_stepper_enable)
+			vote(chg->fcc_votable, FCC_STEPPER_VOTER, false, 0);
+
 		/* Schedule work to enable parallel charger */
 		vote(chg->awake_votable, PL_DELAY_VOTER, true, 0);
 		schedule_delayed_work(&chg->pl_enable_work,
@@ -3861,6 +3924,11 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 						false, 0);
 			}
 		}
+
+		/* Force 1500mA FCC on removal if fcc stepper is enabled */
+		if (chg->fcc_stepper_enable)
+			vote(chg->fcc_votable, FCC_STEPPER_VOTER,
+							true, 1500000);
 
 		rc = smblib_request_dpdm(chg, false);
 		if (rc < 0)
@@ -4064,7 +4132,7 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: hvdcp-3p0-auth-done rising; %s detected\n",
 		   apsd_result->name);
-    if (POWER_SUPPLY_TYPE_USB_HVDCP_3 == apsd_result->pst) {
+    if (!chg->pd_active && POWER_SUPPLY_TYPE_USB_HVDCP_3 == apsd_result->pst) {
         CHG_DBG("%s: run asus_hvdcp3_wa, apsd_result=%s\n", __func__, apsd_result->name);
         asus_hvdcp3_wa(chg);
     }
@@ -5580,6 +5648,8 @@ static int smblib_create_votables(struct smb_charger *chg)
 		rc = PTR_ERR(chg->disable_power_role_switch);
 		return rc;
 	}
+	vote(chg->disable_power_role_switch, DEFAULT_VOTER,
+			chg->ufp_only_mode, 0);
 
 	return rc;
 }

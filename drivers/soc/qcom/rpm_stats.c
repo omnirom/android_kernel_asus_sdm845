@@ -271,6 +271,7 @@ void asus_show_rpm_sleep_count (void) {
 	}
 
 DONE:
+	iounmap(prvdata.reg_base);
 	printk("RPM Mode:aosd count=%d;cxsd count=%d;asus_enter_suspend=%d;asus_debug_suspend=%d\n", data[0].count, data[1].count, asus_enter_suspend, asus_debug_suspend);
 	if(asus_enter_suspend)
 		asus_enter_suspend = false;
@@ -359,6 +360,7 @@ uint32 *log_counts;
 			printk("%s",msg);
 			j+= snprintf(buf+j, sizeof(msg), "%s", msg);
 		}
+		iounmap(aop_log);
 	}
 
 	return j;

@@ -44,11 +44,6 @@
 							217, void *)
 #define AUDIO_SET_RTAC_AFE_CAL		_IOWR(CAL_IOCTL_MAGIC, \
 							218, void *)
-//<anna-cheng>for proximity near close touch in call
-#define AUDIO_SET_DEVICE		_IOWR(CAL_IOCTL_MAGIC, \
-							219, void *)
-extern int get_audiodevice(void);
-//<anna-cheng>for proximity near close touch in call
 //ASUS_BSP++ HIGH_imp
 /* ASUS_BSP +++ */
 #define AUDIO_GET_HS_IMP			_IOWR(CAL_IOCTL_MAGIC, \
@@ -56,7 +51,7 @@ extern int get_audiodevice(void);
 /* ASUS_BSP --- */
 //ASUS_BSP++
 #define AUDIO_SET_AUDIOWIZARD_FORCE_PRESET	_IOWR(CAL_IOCTL_MAGIC, \
- 							221, void *)
+							221, void *)
 #define AUDIO_SET_AUDIOWIZARD_FORCE_CHANNEL	_IOWR(CAL_IOCTL_MAGIC, \
 							222, void *)
 #define SW_AUDIOWIZARD_RINGTONG 	0x0b
@@ -124,7 +119,6 @@ enum {
 	AFE_LSM_TX_CAL_TYPE,
 	ADM_LSM_TOPOLOGY_CAL_TYPE,
 	ADM_LSM_AUDPROC_CAL_TYPE,
-	SET_device_TYPE,
 	/* ASUS_BSP +++*/
 	GET_IMP_TYPE,
 	/* ASUS_BSP ---*/

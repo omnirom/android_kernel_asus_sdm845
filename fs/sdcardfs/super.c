@@ -86,7 +86,10 @@ static int sdcardfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 		}
 
 		min_blocks = ((sbi->options.reserved_mb * 1024 * 1024)/buf->f_bsize);
-		buf->f_blocks -= min_blocks;
+		if(buf->f_blocks <= min_blocks){
+			pr_err("can't block size %d.\n", sbi->options.reserved_mb);
+			return -EINVAL;
+		}
 
 		if (buf->f_bavail > min_blocks)
 			buf->f_bavail -= min_blocks;
@@ -94,7 +97,10 @@ static int sdcardfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 			buf->f_bavail = 0;
 
 		/* Make reserved blocks invisiable to media storage */
-		buf->f_bfree = buf->f_bavail;
+		if(buf->f_bfree < 5*min_blocks){//hack 500M
+			buf->f_blocks -= min_blocks;
+			buf->f_bfree = buf->f_bavail;
+		}
 	}
 
 	/* set return buf to our f/s to avoid confusing user-level utils */
@@ -144,7 +150,7 @@ static int sdcardfs_remount_fs2(struct vfsmount *mnt, struct super_block *sb,
 		pr_err("sdcardfs: remount flags 0x%x unsupported\n", *flags);
 		err = -EINVAL;
 	}
-	pr_info("Remount options were %s for vfsmnt %p.\n", options, mnt);
+	pr_info("Remount options were %s for vfsmnt %pK.\n", options, mnt);
 	err = parse_options_remount(sb, options, *flags & ~MS_SILENT, mnt->data);
 
 

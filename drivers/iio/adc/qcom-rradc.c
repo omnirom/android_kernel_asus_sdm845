@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -202,6 +202,9 @@
 #define FG_RR_TP_REV_VERSION2		29
 #define FG_RR_TP_REV_VERSION3		32
 
+#define BATT_ID_SETTLE_SHIFT		5
+#define RRADC_BATT_ID_DELAY_MAX		8
+
 /*
  * The channel number is not a physical index in hardware,
  * rather it's a list of supported channels and an index to
@@ -237,6 +240,7 @@ struct rradc_chip {
 	struct mutex			lock;
 	struct regmap			*regmap;
 	u16				base;
+	int				batt_id_delay;
 	struct iio_chan_spec		*iio_chans;
 	unsigned int			nchannels;
 	struct rradc_chan_prop		*chan_props;
@@ -264,6 +268,8 @@ struct rradc_chan_prop {
 	int (*scale)(struct rradc_chip *chip, struct rradc_chan_prop *prop,
 					u16 adc_code, int *result);
 };
+
+static const int batt_id_delays[] = {0, 1, 4, 12, 20, 40, 60, 80};
 
 static int rradc_masked_write(struct rradc_chip *rr_adc, u16 offset, u8 mask,
 						u8 val)
@@ -776,8 +782,7 @@ static int rradc_check_status_ready_with_retry(struct rradc_chip *chip,
 
 		if (((prop->channel == RR_ADC_CHG_TEMP) ||
 			(prop->channel == RR_ADC_SKIN_TEMP) ||
-			(prop->channel == RR_ADC_USBIN_I) ||
-			(prop->channel == RR_ADC_DIE_TEMP)) &&
+			(prop->channel == RR_ADC_USBIN_I)) &&
 					((!rradc_is_usb_present(chip)))) {
 			pr_info("USB not present for %d\n", prop->channel);
 			rc = -ENODATA;
@@ -863,12 +868,20 @@ static int rradc_enable_batt_id_channel(struct rradc_chip *chip, bool enable)
 static int rradc_do_batt_id_conversion(struct rradc_chip *chip,
 		struct rradc_chan_prop *prop, u16 *data, u8 *buf)
 {
-	int rc = 0, ret = 0;
+	int rc = 0, ret = 0, batt_id_delay;
 
 	rc = rradc_enable_batt_id_channel(chip, true);
 	if (rc < 0) {
 		pr_err("Enabling BATT ID channel failed:%d\n", rc);
 		return rc;
+	}
+
+	if (chip->batt_id_delay != -EINVAL) {
+		batt_id_delay = chip->batt_id_delay << BATT_ID_SETTLE_SHIFT;
+		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_CFG,
+				batt_id_delay, batt_id_delay);
+		if (rc < 0)
+			pr_err("BATT_ID settling time config failed:%d\n", rc);
 	}
 
 	rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
@@ -931,25 +944,6 @@ static void rradc_update_cache(struct rradc_cache *cache, u16 value)
 	getboottime(&cache->ts);
 }
 
-static int rradc_check_cache(struct rradc_cache *cache, u16 *value)
-{
-	struct timespec ts, diff;
-	s64 delay;
-
-	if (cache->ts.tv_sec == 0 && cache->ts.tv_nsec == 0)
-		return -ENODATA;
-
-	getboottime(&ts);
-	diff = timespec_sub(ts, cache->ts);
-	delay = timespec_to_ns(&diff);
-	if (delay < NSEC_PER_SEC*2) {
-		*value = cache->value;
-		return 0;
-	}
-
-	return -ENODATA;
-}
-
 static int rradc_do_conversion(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 *data)
 {
@@ -974,10 +968,7 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 			rc = -EAGAIN;
 			goto fail;
 		}
-		if (rradc_check_cache(&chip->usbin_v, data) == 0) {
-			rc = 0;
-			goto fail;
-		}
+
 		/* Force conversion every cycle */
 		rc = rradc_masked_write(chip, FG_ADC_RR_USB_IN_V_TRIGGER,
 				FG_ADC_RR_USB_IN_V_EVERY_CYCLE_MASK,
@@ -995,6 +986,30 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 
 		/* Restore usb_in trigger */
 		rc = rradc_masked_write(chip, FG_ADC_RR_USB_IN_V_TRIGGER,
+				FG_ADC_RR_USB_IN_V_EVERY_CYCLE_MASK, 0);
+		if (rc < 0) {
+			pr_err("Restore every cycle update failed:%d\n", rc);
+			goto fail;
+		}
+		break;
+	case RR_ADC_DIE_TEMP:
+		/* Force conversion every cycle */
+		rc = rradc_masked_write(chip, FG_ADC_RR_PMI_DIE_TEMP_TRIGGER,
+				FG_ADC_RR_USB_IN_V_EVERY_CYCLE_MASK,
+				FG_ADC_RR_USB_IN_V_EVERY_CYCLE);
+		if (rc < 0) {
+			pr_err("Force every cycle update failed:%d\n", rc);
+			goto fail;
+		}
+
+		rc = rradc_read_channel_with_continuous_mode(chip, prop, buf);
+		if (rc < 0) {
+			pr_err("Error reading in continuous mode:%d\n", rc);
+			goto fail;
+		}
+
+		/* Restore aux_therm trigger */
+		rc = rradc_masked_write(chip, FG_ADC_RR_PMI_DIE_TEMP_TRIGGER,
 				FG_ADC_RR_USB_IN_V_EVERY_CYCLE_MASK, 0);
 		if (rc < 0) {
 			pr_err("Restore every cycle update failed:%d\n", rc);
@@ -1170,6 +1185,21 @@ static int rradc_get_dt_data(struct rradc_chip *chip, struct device_node *node)
 			"Couldn't find reg in node = %s rc = %d\n",
 			node->name, rc);
 		return rc;
+	}
+
+	chip->batt_id_delay = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,batt-id-delay-ms",
+			&chip->batt_id_delay);
+	if (!rc) {
+		for (i = 0; i < RRADC_BATT_ID_DELAY_MAX; i++) {
+			if (chip->batt_id_delay == batt_id_delays[i])
+				break;
+		}
+		if (i == RRADC_BATT_ID_DELAY_MAX)
+			pr_err("Invalid batt_id_delay, rc=%d\n", rc);
+		else
+			chip->batt_id_delay = i;
 	}
 
 	chip->base = base;

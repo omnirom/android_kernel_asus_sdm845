@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,9 +57,10 @@ static bool scm_deassert_ps_hold_supported;
 /* Download mode master kill-switch */
 static void __iomem *msm_ps_hold;
 static phys_addr_t tcsr_boot_misc_detect;
-
 static void scm_disable_sdi(void);
+static bool force_warm_reboot;
 
+extern int g_user_rtb_mode;
 #ifdef CONFIG_QCOM_DLOAD_MODE
 /* Runtime could be only changed value once.
  * There is no API from TZ to re-enable the registers.
@@ -68,19 +69,12 @@ static void scm_disable_sdi(void);
 #ifdef CONFIG_USER_BUILD
 static int download_mode = 0;
 #else
-static int download_mode = 1;
+ static int download_mode = 1;
 #endif
 #else
 static const int download_mode;
 #endif
 
-int get_download_mode(void)
-{
-	return download_mode;
-}
-EXPORT_SYMBOL(get_download_mode);
-
-extern int g_user_rtb_mode;
 #ifdef CONFIG_QCOM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
 #define DL_MODE_PROP "qcom,msm-imem-download_mode"
@@ -358,25 +352,23 @@ static void msm_restart_prepare(const char *cmd)
 
 	if (qpnp_pon_check_hard_reset_stored()) {
 		/* Set warm reset as true when device is in dload mode */
-		if (get_dload_mode() ||  in_panic ||
+		if (get_dload_mode() ||  in_panic||
 			((cmd != NULL && cmd[0] != '\0') &&
 			!strcmp(cmd, "edl")))
 			need_warm_reset = true;
 	} else {
-		need_warm_reset = (get_dload_mode() || in_panic ||
+		need_warm_reset = (get_dload_mode() || in_panic||
 				(cmd != NULL && cmd[0] != '\0'));
 	}
 
-#ifdef CONFIG_QCOM_PRESERVE_MEM
-	need_warm_reset = true;
-#endif
+	if (force_warm_reboot)
+		pr_info("Forcing a warm reset of the system\n");
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
-	if (need_warm_reset) {
+	if (force_warm_reboot || need_warm_reset)
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
-	} else {
+	else
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
-	}
 
 	if (!in_panic) {
 		// Normal reboot. Clean the printk buffer magic
@@ -509,7 +501,6 @@ static void do_msm_poweroff(void)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	ulong *printk_buffer_slot2_addr;
 #endif
-
 	pr_notice("Powering off the SoC\n");
 #ifdef CONFIG_MSM_DLOAD_MODE
 	// Normal power off. Clean the printk buffer magic
@@ -523,6 +514,7 @@ static void do_msm_poweroff(void)
 	printk(KERN_CRIT "asus_global.ramdump_enable_magic = 0x%x\n",asus_global.ramdump_enable_magic);
 	flush_cache_all();
 #endif
+
 	set_dload_mode(0);
 	scm_disable_sdi();
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
@@ -533,8 +525,6 @@ static void do_msm_poweroff(void)
 	msleep(10000);
 	pr_err("Powering off has failed\n");
 }
-EXPORT_SYMBOL(do_msm_poweroff);
-
 
 #ifdef CONFIG_QCOM_DLOAD_MODE
 static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
@@ -560,6 +550,8 @@ static ssize_t attr_store(struct kobject *kobj, struct attribute *attr,
 
 	return ret;
 }
+EXPORT_SYMBOL(do_msm_poweroff);
+
 
 static const struct sysfs_ops reset_sysfs_ops = {
 	.show	= attr_show,
@@ -783,6 +775,9 @@ skip_sysfs_create:
 	set_dload_mode_in_probe_function(download_mode,true);
 	//if (!download_mode)
 	//	scm_disable_sdi();
+
+	force_warm_reboot = of_property_read_bool(dev->of_node,
+						"qcom,force-warm-reboot");
 
 	return 0;
 

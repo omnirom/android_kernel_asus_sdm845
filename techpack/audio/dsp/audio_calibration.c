@@ -46,14 +46,9 @@ struct audio_cal_info {
 };
 
 static struct audio_cal_info	audio_cal;
-//<anna-cheng>for proximity near close touch in call
-int audio_device = -1;
-EXPORT_SYMBOL(audio_device);
-int device = -1;
-//<anna-cheng>for proximity near close touch in call
 //ASUS_BSP++
 int g_audiowizard_force_preset_state = 0;
-struct input_dev *audiowizard; 
+struct input_dev *audiowizard;
 struct input_dev *audiowizard_channel;
 //ASUS_BSP--
 
@@ -475,18 +470,6 @@ static long audio_cal_shared_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_GET_CALIBRATION:
 	case AUDIO_POST_CALIBRATION:
 		break;
-//<anna-cheng>for proximity near close touch in call
-	case AUDIO_SET_DEVICE:
-		mutex_lock(&audio_cal.cal_mutex[SET_device_TYPE]);
-		if(copy_from_user(&device, (void *)arg,sizeof(device))) {
-			pr_err("%s: Could not copy device to user\n", __func__);
-			ret = -EFAULT;
-		}
-		audio_device = device;
-		printk("%s: Audio device status:audio_device=%d\n",__func__,audio_device);
-		mutex_unlock(&audio_cal.cal_mutex[SET_device_TYPE]);
-		goto done;
-//<anna-cheng>for proximity near close touch in call
 	/* ASUS_BSP +++ */
 	case AUDIO_GET_HS_IMP:
 		printk("AUDIO_GET_HS_IMP : start\n");
@@ -527,9 +510,9 @@ static long audio_cal_shared_ioctl(struct file *file, unsigned int cmd,
 		if (copy_from_user(&g_audiowizard_force_preset_state, (void *)arg,
 				sizeof(g_audiowizard_force_preset_state))) {
 			pr_err("%s: Could not copy g_audiowizard_force_preset_state from user\n", __func__);
- 			ret = -EFAULT;
- 		}
- 		printk(" audio_cal_shared_ioctl #### AUDIO_SET_AUDIOWIZARD_FORCE_PRESET g_audiowizard_force_preset_state:%d",g_audiowizard_force_preset_state);
+			ret = -EFAULT;
+		}
+		printk(" audio_cal_shared_ioctl #### AUDIO_SET_AUDIOWIZARD_FORCE_PRESET g_audiowizard_force_preset_state:%d",g_audiowizard_force_preset_state);
 		send_audiowizard_state(audiowizard,g_audiowizard_force_preset_state);
 		input_sync(audiowizard);
 		mutex_unlock(&audio_cal.cal_mutex[AUDIOWIZARD_FORCE_PRESET_TYPE]);
@@ -678,15 +661,13 @@ static long audio_cal_ioctl(struct file *f,
 							204, compat_uptr_t)
 #define AUDIO_POST_CALIBRATION32	_IOWR(CAL_IOCTL_MAGIC, \
 							205, compat_uptr_t)
-#define AUDIO_SET_DEVICE32	_IOWR(CAL_IOCTL_MAGIC, \
-							219, compat_uptr_t)
 /* ASUS_BSP  +++ */
 #define AUDIO_GET_HS_IMP32			_IOWR(CAL_IOCTL_MAGIC, \
 							230, compat_uptr_t)
 /* ASUS_BSP  --- */
 //ASUS_BSP++
 #define AUDIO_SET_AUDIOWIZARD_FORCE_PRESET32	_IOWR(CAL_IOCTL_MAGIC, \
- 							221, compat_uptr_t)
+							221, compat_uptr_t)
 #define AUDIO_SET_AUDIOWIZARD_FORCE_CHANNEL32	_IOWR(CAL_IOCTL_MAGIC, \
 							222, compat_uptr_t)
 //ASUS_BSP--
@@ -715,9 +696,6 @@ static long audio_cal_compat_ioctl(struct file *f,
 		break;
 	case AUDIO_POST_CALIBRATION32:
 		cmd64 = AUDIO_POST_CALIBRATION;
-		break;
-	case AUDIO_SET_DEVICE32:
-		cmd64 = AUDIO_SET_DEVICE;
 		break;
 	/* ASUS_BSP +++ */
 	case AUDIO_GET_HS_IMP32:
@@ -767,7 +745,6 @@ static int __init audio_cal_init(void)
 	int ret =0;
 
 	pr_debug("%s\n", __func__);
-	audio_device = 0; //<anna-cheng>for proximity near close touch in call
 	//ASUS_BSP++
 	audiowizard = input_allocate_device();
 	if(!audiowizard)
