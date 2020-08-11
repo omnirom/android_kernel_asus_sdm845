@@ -30,8 +30,6 @@ struct dsi_bridge {
 
 	struct dsi_display *display;
 	struct dsi_display_mode dsi_mode;
-
-	unsigned int enabled;	//0: disabled; 1: pre_enabled; 2:enabled
 };
 
 /**
@@ -152,4 +150,6 @@ int dsi_conn_post_kickoff(struct drm_connector *connector);
 void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 				struct drm_display_mode *drm_mode);
 
+u64 dsi_drm_find_bit_clk_rate(void *display,
+			      const struct drm_display_mode *drm_mode);
 #endif /* _DSI_DRM_H_ */

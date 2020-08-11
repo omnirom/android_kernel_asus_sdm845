@@ -540,7 +540,7 @@ static ssize_t fts_tpfwver_show(struct device *dev, struct device_attribute *att
     else if((vdid == 0xFF) || (vdid == 0x00))
 		num_read_chars = snprintf(buf, PAGE_SIZE, "get vendor id fail!\n");
 	else
-        num_read_chars = snprintf(buf, PAGE_SIZE, "0x%02x-0x%02x-0x%s\n", vdid, fwver,lcd_stage_id);
+        num_read_chars = snprintf(buf, PAGE_SIZE, "0x%02x-0x%02x-0x%s", vdid, fwver,lcd_stage_id);
 
     mutex_unlock(&input_dev->mutex);
     return num_read_chars;

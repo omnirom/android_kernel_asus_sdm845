@@ -50,6 +50,8 @@ const int draco_evb_jeita_fcc_cfg[]={900000,900000,1500000,3000000,3000000,15000
 const int draco_evb_icl_cfg[]={500,900,950,1400,1910};
 // default parameters ---
 
+extern void asp1690_enable(bool enable);
+
 static const unsigned int usb_connector_ext_supported_cable[] = {
 	EXTCON_NONE,
 };
@@ -77,7 +79,6 @@ int fcc_override_setting;
 int asus_fcc_override_flag = 0;
 int vbat_avg_1 = 0;
 int vbat_avg_2 = 0;
-
 struct delayed_work charging_limit_work;
 struct delayed_work cable_capability_check_work;
 struct delayed_work SetJeitaRTCWorker;
@@ -108,7 +109,7 @@ bool is_ubatlife_dischg(void)
 //ASUS_BSP ---
 
 //ASUS_BSP +++
-#define CHGLimit_PATH "/asdf/CHGLimit_kernel"
+#define CHGLimit_PATH "/vendor/asdf/CHGLimit_kernel"
 static bool check_ultrabatterylife_enable(void)
 {
 	struct file *fp = NULL;
@@ -293,7 +294,6 @@ int asus_get_prop_batt_status(struct smb_charger *chg)
 
 	return status_val.intval;
 }
-
 int asus_check_batt_health(struct smb_charger *chg)
 {
 	int cur_state;
@@ -422,10 +422,13 @@ static int asus_update_all(struct smb_charger *chip, struct battery_info_reply *
 	return 0;
 }
 
+int asus_get_prop_usb_present(struct smb_charger *chg);
+
 static int asus_print_all(void)
 {
 	u8 reg;
 	u8 value[6];
+	u8 abnormal_discharging_dump[50];
 	char battInfo[256];
 	u8 val,thd_hot,thd_2hot,therm_sts;
 	struct battery_info_reply batt_info;
@@ -526,6 +529,57 @@ static int asus_print_all(void)
 		value[4],
 		value[5]);
 
+	if (asus_get_prop_usb_present(&chip_dev->chg) == true && (asus_get_prop_batt_status(&chip_dev->chg) ==POWER_SUPPLY_STATUS_NOT_CHARGING || asus_get_prop_batt_status(&chip_dev->chg) ==POWER_SUPPLY_STATUS_DISCHARGING)) 
+	{
+	//0x10A0, 0x10A1, 0x10A2	
+		smblib_read(&chip_dev->chg, 0x10A0, &abnormal_discharging_dump[0]);
+		smblib_read(&chip_dev->chg, 0x10A1, &abnormal_discharging_dump[1]);
+		smblib_read(&chip_dev->chg, 0x10A2, &abnormal_discharging_dump[2]);
+		printk(KERN_INFO "[BATT] [0x10A0] =0x%x, [0x10A1] =0x%x, [0x10A2] =0x%x\n",
+			abnormal_discharging_dump[0],
+			abnormal_discharging_dump[1],
+			abnormal_discharging_dump[2]);
+		//0x1006~0x100E
+		smblib_read(&chip_dev->chg, 0x1006, &abnormal_discharging_dump[3]);
+		smblib_read(&chip_dev->chg, 0x1007, &abnormal_discharging_dump[4]);
+		smblib_read(&chip_dev->chg, 0x1008, &abnormal_discharging_dump[5]);
+		smblib_read(&chip_dev->chg, 0x1009, &abnormal_discharging_dump[6]);
+		smblib_read(&chip_dev->chg, 0x100A, &abnormal_discharging_dump[7]);
+		smblib_read(&chip_dev->chg, 0x100B, &abnormal_discharging_dump[8]);
+		smblib_read(&chip_dev->chg, 0x100C, &abnormal_discharging_dump[9]);
+		smblib_read(&chip_dev->chg, 0x100D, &abnormal_discharging_dump[10]);
+		smblib_read(&chip_dev->chg, 0x100E, &abnormal_discharging_dump[11]);
+		printk(KERN_INFO "[BATT] [0x1006~100E] =0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+			abnormal_discharging_dump[3],
+			abnormal_discharging_dump[4],
+			abnormal_discharging_dump[5],
+			abnormal_discharging_dump[6],
+			abnormal_discharging_dump[7],
+			abnormal_discharging_dump[8],
+			abnormal_discharging_dump[9],
+			abnormal_discharging_dump[10],
+			abnormal_discharging_dump[11]);
+		//0x1606~0x160E
+		smblib_read(&chip_dev->chg, 0x1606, &abnormal_discharging_dump[12]);
+		smblib_read(&chip_dev->chg, 0x1607, &abnormal_discharging_dump[13]);
+		smblib_read(&chip_dev->chg, 0x1608, &abnormal_discharging_dump[14]);
+		smblib_read(&chip_dev->chg, 0x1609, &abnormal_discharging_dump[15]);
+		smblib_read(&chip_dev->chg, 0x160A, &abnormal_discharging_dump[16]);
+		smblib_read(&chip_dev->chg, 0x160B, &abnormal_discharging_dump[17]);
+		smblib_read(&chip_dev->chg, 0x160C, &abnormal_discharging_dump[18]);
+		smblib_read(&chip_dev->chg, 0x160D, &abnormal_discharging_dump[19]);
+		smblib_read(&chip_dev->chg, 0x160E, &abnormal_discharging_dump[20]);
+		printk(KERN_INFO "[BATT] [0x1606~160E] =0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+			abnormal_discharging_dump[12],
+			abnormal_discharging_dump[13],
+			abnormal_discharging_dump[14],
+			abnormal_discharging_dump[15],
+			abnormal_discharging_dump[16],
+			abnormal_discharging_dump[17],
+			abnormal_discharging_dump[18],
+			abnormal_discharging_dump[19],
+			abnormal_discharging_dump[20]);
+	}
 	return 0;
 }
 
@@ -769,7 +823,7 @@ void asus_set_qc_stat(struct smb_charger *chg, union power_supply_propval *val)
     stat = val->intval;
     if (0 == asus_chg->quick_charge_ac_flag) {
         set = SWITCH_QC_OTHER;
-        //~ CHG_DBG("stat: %d, switch: %d\n",stat, set);
+        //~CHG_DBG("stat: %d, switch: %d\n",stat, set);
         extcon_set_state_sync_asus(&asus_chg->qc_stat_dev, set);
         return;
     }
@@ -803,10 +857,9 @@ void asus_set_qc_stat(struct smb_charger *chg, union power_supply_propval *val)
             break;
     }
 
-    //~ CHG_DBG("stat: %d, switch: %d\n",stat, set);
+    //~CHG_DBG("stat: %d, switch: %d\n",stat, set);
     return;
 }
-
 void asus_legacy_det_work(struct work_struct *work)
 {
     struct smb_charger * chg = &chip_dev->chg;
@@ -814,7 +867,6 @@ void asus_legacy_det_work(struct work_struct *work)
 	cancel_work(&chg->legacy_detection_work);
 	schedule_work(&chg->legacy_detection_work);
 }
-
 #define	SMARTCHG_STOP_CHG_PROC_FILE "driver/smartchg_stop_chg"
 static int smartchg_stop_chg_proc_read(struct seq_file *buf, void *v)
 {
@@ -1726,7 +1778,7 @@ void asus_battery_charging_limit(struct work_struct *dat)
 
 	rc = vote(chip_dev->chg.chg_disable_votable, DEMO_APP_VOTER, !charger_flag, 0);
     //~ rc = smblib_write(&chip_dev->chg, CHARGING_ENABLE_CMD_REG, charger_flag ? 0 : 1);
-    
+
 	if(rc < 0)
 	{
 		pr_info("charger batt_suspend disable failed\n");
@@ -1778,6 +1830,11 @@ void asus_hvdcp3_wa(struct smb_charger *chg)
 {
     int rc = 0;
 
+    if (chg->pd_active) {
+        CHG_DBG("%s: Skip asus_hvdcp3_wa when pd active\n", __func__);
+        return;
+    }
+
     if (ASUS_ADAPTER_ID == ASUS_200K && chg->asus_chg->asus_charging_type != HVDCP_ASUS_200K_2A) {
         CHG_DBG("%s: Fix HVDCP3 sign from ASUS_200K\n", __func__);
         chg->asus_chg->asus_charging_type = HVDCP_ASUS_200K_2A;
@@ -1789,7 +1846,7 @@ void asus_hvdcp3_wa(struct smb_charger *chg)
             CHG_DBG_E("%s: Failed to set USBIN_CURRENT_LIMIT\n", __func__);
         chg->asus_chg->last_icl_cfg = 0x42;
         power_supply_changed(chg->batt_psy);
-    } else if (!chg->pd_active && asus_flow_done_flag && !chg->asus_chg->adc_redet_flag && ((ASUS_ADAPTER_ID == ADC_NOT_READY) ||
+        } else if (asus_flow_done_flag && !chg->asus_chg->adc_redet_flag && ((ASUS_ADAPTER_ID == ADC_NOT_READY) ||
                     !((chg->asus_chg->asus_charging_type == HVDCP_ASUS_200K_2A) ||
                     (chg->asus_chg->asus_charging_type == HVDCP_OTHERS_1P5A)))) { // rerun adc detection for QC3 if ASUS_ID not correctly set
         CHG_DBG_E("%s: rerun adc detection for QC3 which ASUS_ID not correctly set\n", __func__);
@@ -1802,7 +1859,6 @@ void asus_hvdcp3_wa(struct smb_charger *chg)
         schedule_delayed_work(&chg->asus_chg->asus_qc3_wa_adc_det_work, msecs_to_jiffies(QC3_WA_WAIT_TIME));
     }
 }
-
 void Jeita_SetRTC(struct work_struct *dat)
 {
 	unsigned long jeita_flags;
@@ -1982,7 +2038,7 @@ static void asus_soft_jeita_recharge(struct smb_charger *chg)
             CHG_DBG_E("%s: charger batt_suspend disable failed, rc=%d\n", __func__, rc);
             return;
         }
-        rc = vote(chg->chg_disable_votable, SOFT_JEITA_RECHARGE_VOTER, false, 0);
+		rc = vote(chg->chg_disable_votable, SOFT_JEITA_RECHARGE_VOTER, false, 0);
         if(rc < 0) {
             CHG_DBG_E("%s: charger batt_suspend disable failed, rc=%d\n", __func__, rc);
             return;
@@ -2088,7 +2144,7 @@ static int asus_do_soft_jeita(struct smb_charger *chg)
 			if (g_ubatterylife_enable_flag) {
 				bat_capacity = asus_get_prop_batt_capacity(chg);
 
-				if(bat_capacity >= UBATLIFE_DISCHG_THD)	// >60%
+				if(bat_capacity > UBATLIFE_DISCHG_THD)	// >60%
 					ubatlife_chg_status = UBATLIFE_DISCHG_THD;
 				else if(bat_capacity < UBATLIFE_CHG_THD)	// <58%
 					ubatlife_chg_status = UBATLIFE_CHG_THD;
@@ -2140,7 +2196,6 @@ static int asus_do_soft_jeita(struct smb_charger *chg)
 	}
 
     ret = smblib_read(chg, USBIN_CURRENT_LIMIT_CFG_REG, &icl_max);
-
     smblib_read(chg, TEMP_RANGE_STATUS_REG, &reg);
     if (reg & THERM_REG_ACTIVE_BIT) {
         inov_triggered = true;
@@ -2448,7 +2503,7 @@ void reset_icl_for_nonstandard_ac(bool icl_override)
     if (rc < 0) {
         CHG_DBG_E("%s: Couldn't set usbin adapter allowance rc=%d\n", __func__, rc);
     }
-
+    
     chg->asus_chg->last_icl_cfg = set_icl;
 }
 
@@ -2599,7 +2654,7 @@ void asus_adapter_adc_process(struct asus_charger *asus_chg, bool is_rerun)
 	bool typec_wa_flag = false;
 
     CHG_DBG("enter %s, is_rerun=%d\n", __func__, is_rerun);
-    asus_chg->BR_countrycode_read_pending = 0;
+	asus_chg->BR_countrycode_read_pending = 0;
 
     // set usb icl 25mA
     rc = smblib_masked_write(chg, USBIN_CURRENT_LIMIT_CFG_REG, USBIN_CURRENT_LIMIT_MASK, 0x01);
@@ -2775,7 +2830,6 @@ post_proc:
     if (rc < 0) {
         CHG_DBG_E("%s: Couldn't set usbin adapter allowance rc=%d\n", __func__, rc);
     }
-
     chg->asus_chg->last_icl_cfg = set_icl;
 
     // usb suspend when icl <= 25mA
@@ -2795,7 +2849,7 @@ post_proc:
         schedule_delayed_work(&chg->asus_chg->asus_batt_temp_work, msecs_to_jiffies(15000));
     }
 
-	// start legacy cable detection when not HVDCP
+// start legacy cable detection when not HVDCP
 	if ((0 == asus_chg->asus_qc_flag) && typec_wa_flag) {
 		CHG_DBG("%s: DCP detected, asus run legacy wa in 5s\n", __func__);
 		schedule_delayed_work(&asus_chg->legacy_det_work, msecs_to_jiffies(5000));
@@ -2842,7 +2896,6 @@ void asus_adapter_adc_det(struct smb_charger *chg, bool is_rerun)
     rc = smblib_masked_write(chg, CMD_APSD_REG, APSD_RERUN_BIT, 1);
     if (rc < 0)
         CHG_DBG_E("%s: Failed to set CMD_APSD_REG\n", __func__);
-
     // usb not suspend when icl <= 25mA
     rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
             SUSPEND_ON_COLLAPSE_USBIN_BIT, 0);
@@ -2932,7 +2985,7 @@ void asus_charger_pre_config(struct smb_charger *chg)
         dev_err(chg->dev, "Couldn't set reg control charger enable && disable charge inhibit rc=%d\n", rc);
     }
     // 10.disable charger
-    rc = smblib_read(chg, CHGR_CFG2_REG, &stat);
+     rc = smblib_read(chg, CHGR_CFG2_REG, &stat);
     if (rc < 0) {
         dev_err(chg->dev, "Couldn't read CHGR_CFG2_REG rc=%d\n", rc);
     }
@@ -3185,9 +3238,8 @@ void asus_handle_usb_insertion(struct work_struct *work)
     if (rc < 0) {
         CHG_DBG_E("%s: Couldn't set usbin adapter allowance rc=%d\n", __func__, rc);
     }
-
-    chg->asus_chg->last_icl_cfg = set_icl;
-
+	chg->asus_chg->last_icl_cfg = set_icl;
+	
     asus_chg->asus_adapter_detecting_flag = false;
 
     CHG_DBG("do cable capability check in 5s\n");
@@ -3268,7 +3320,6 @@ void asus_handle_usb_removal(struct smb_charger *chg)
         SwitchTo1D();
         CHG_DBG("switch to  1D\n");
     }
-
     // usb suspend when icl <= 25mA
     rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
             SUSPEND_ON_COLLAPSE_USBIN_BIT, 1);
@@ -3279,10 +3330,10 @@ void asus_handle_usb_removal(struct smb_charger *chg)
     if(adc_check_lock.active){
 		__pm_relax(&adc_check_lock);
     }
- 
-     chg->asus_chg->last_icl_cfg = 0x14;
-   
-    alarm_cancel(&jeita_alarm);
+	
+	chg->asus_chg->last_icl_cfg = 0x14;
+	
+	alarm_cancel(&jeita_alarm);
 }
 
 void asus_usb_plugin_flow(struct smb_charger *chg, bool vbus_rising)
@@ -3307,7 +3358,6 @@ void asus_usb_plugin_flow(struct smb_charger *chg, bool vbus_rising)
         asus_handle_usb_removal(chg);
     }
 }
-
 #define BR_COUNTRYCODE_PROC_FILE	"br_countrycode_prop"
 static struct proc_dir_entry *br_countrycode_proc_file;
 static int br_countrycode_proc_read(struct seq_file *buf, void *v)
@@ -3378,7 +3428,7 @@ static int boot_completed_proc_open(struct inode *inode, struct  file *file)
 extern void asus_check_rconn(void);
 void asus_rconn_check_work_func(struct work_struct *work)
 {
-    asus_check_rconn();
+	asus_check_rconn();
 }
 
 static ssize_t boot_completed_proc_write(struct file *filp, const char __user *buff,
@@ -3405,7 +3455,7 @@ static ssize_t boot_completed_proc_write(struct file *filp, const char __user *b
         g_boot_complete = true;
     }
 
-    schedule_delayed_work(&asus_rconn_check_work, 0);
+     schedule_delayed_work(&asus_rconn_check_work, 0);
     return len;
 }
 
@@ -3734,7 +3784,7 @@ static ssize_t bob_mode_switch_proc_write(struct file *filp, const char __user *
             g_receiver_enable = false;
         }
     } else {
-        printk("[BAT][Proc] skip bob mode switch in ZS620KL2\n");
+		printk("[BAT][Proc] skip bob mode switch in ZS620KL2\n");
     }
 
     return len;
@@ -3903,9 +3953,9 @@ void asus_charger_init_config(struct smb_charger *chg)
     INIT_DELAYED_WORK(&chg->asus_chg->fcc_override_work, asus_fcc_override_work);
     INIT_DELAYED_WORK(&chg->asus_chg->vbat_avg_work, asus_vbat_avg_work);
     INIT_DELAYED_WORK(&SetJeitaRTCWorker, Jeita_SetRTC);
-    INIT_DELAYED_WORK(&chg->asus_chg->legacy_det_work, asus_legacy_det_work);
-    INIT_DELAYED_WORK(&asus_rconn_check_work, asus_rconn_check_work_func);
-    INIT_DELAYED_WORK(&reset_icl_work, asus_reset_icl_work);
+	INIT_DELAYED_WORK(&chg->asus_chg->legacy_det_work, asus_legacy_det_work);
+	INIT_DELAYED_WORK(&asus_rconn_check_work, asus_rconn_check_work_func);
+	INIT_DELAYED_WORK(&reset_icl_work, asus_reset_icl_work);
     INIT_DELAYED_WORK(&reset_icl_with_override_work, asus_reset_icl_with_override_work);
 
     wakeup_source_init(&adc_check_lock, "adc_check_Lock");

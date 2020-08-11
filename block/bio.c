@@ -568,8 +568,11 @@ EXPORT_SYMBOL(bio_phys_segments);
 static inline void bio_clone_crypt_key(struct bio *dst, const struct bio *src)
 {
 #ifdef CONFIG_PFK
-	dst->bi_crypt_key = src->bi_crypt_key;
 	dst->bi_iter.bi_dun = src->bi_iter.bi_dun;
+#ifdef CONFIG_DM_DEFAULT_KEY
+	dst->bi_crypt_key = src->bi_crypt_key;
+	dst->bi_crypt_skip = src->bi_crypt_skip;
+#endif
 	dst->bi_dio_inode = src->bi_dio_inode;
 #endif
 }
@@ -862,6 +865,9 @@ int bio_add_page(struct bio *bio, struct page *page,
 	bio->bi_vcnt++;
 done:
 	bio->bi_iter.bi_size += len;
+
+	if (!bio_flagged(bio, BIO_WORKINGSET) && unlikely(PageWorkingset(page)))
+		bio_set_flag(bio, BIO_WORKINGSET);
 	return len;
 }
 EXPORT_SYMBOL(bio_add_page);
@@ -1227,8 +1233,11 @@ struct bio *bio_copy_user_iov(struct request_queue *q,
 			}
 		}
 
-		if (bio_add_pc_page(q, bio, page, bytes, offset) < bytes)
+		if (bio_add_pc_page(q, bio, page, bytes, offset) < bytes) {
+			if (!map_data)
+				__free_page(page);
 			break;
+		}
 
 		len -= bytes;
 		offset = 0;

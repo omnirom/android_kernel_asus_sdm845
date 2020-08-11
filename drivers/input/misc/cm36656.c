@@ -229,7 +229,6 @@ EXPORT_SYMBOL(focal_psensor_disable_touch);
 *******************************************************************/
 static uint16_t cm36656_adc_red, cm36656_adc_green, cm36656_adc_blue, cm36656_adc_ir;
 static int proximity_state = 1;
-static int ps_bypass_near_event = 0;
 //asus alex_wang psensor porting+++++
 static int cm36656_probe_fail = 0;
 //asus alex_wang psensor porting-----
@@ -1131,7 +1130,6 @@ static int psensor_disable(struct cm36656_info *lpi)
 	input_report_abs(lpi->ps_input_dev, ABS_DISTANCE, 4);
 	input_sync(lpi->ps_input_dev);
 	//asus alex wang psensor porting-------
-	ps_bypass_near_event = 0;
 	focal_psensor_disable_touch = false;
 	LOGE("[PS][CM36656] %s\n", __func__);
 	return ret;
@@ -1264,18 +1262,6 @@ static long psensor_ioctl(struct file *file, unsigned int cmd,
 		enPSensorConfig_flag =  enPcalibration_flag ;
 		//asus alex wang PS Calibration----
 		pr_err("[PS][CM36656]%s: ASUS_PSENSOR_EN_CALIBRATION : enPSensorConfig_flag is : %d  \n",__func__,enPSensorConfig_flag); 
-		break;
-	case  ASUS_PSENSOR_BYPASS_NEAR_EVENT:
-		LOGE("[PS][CM36656]%s:ASUS ASUS_PSENSOR_BYPASS_NEAR_EVENT \n", __func__);
-		rc = 0 ;
-		if (copy_from_user(&ps_bypass_near_event , argp, sizeof(ps_bypass_near_event))){
-			rc = -EFAULT;
-			goto pend;
-		}
-		if(ps_bypass_near_event) {
-			focal_psensor_disable_touch = false;
-		}
-		pr_err("[PS][CM36656]%s: ASUS_PSENSOR_BYPASS_NEAR_EVENT : ASUS_PSENSOR_BYPASS_NEAR_EVENT is : %d  \n",__func__,ps_bypass_near_event);
 		break;
 	default:
 		pr_err("[PS][CM36656 error]%s: invalid cmd %d\n",
@@ -3546,19 +3532,11 @@ als_pass:
 			proximity_state = val;
 			if((proximity_state == 0 || proximity_state == 2))
 			{
-				if(ps_bypass_near_event)
-				{
-					focal_psensor_disable_touch = false;
-				}
-				else
-				{
-					focal_psensor_disable_touch = true;
-				}
+				focal_psensor_disable_touch = true;
 				printk("[PS][CM36656] psensor is close\n");
 			}
 			else
 			{
-				ps_bypass_near_event = 0;
 				focal_psensor_disable_touch = false;
 				printk("[PS][CM36656] psensor is away\n");
 			}

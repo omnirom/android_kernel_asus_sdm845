@@ -37,20 +37,20 @@
 /******************************************************************************
 * Private constant and macro definitions using #define
 *****************************************************************************/
-#define KEY_GESTURE_U                           257
-#define KEY_GESTURE_UP                          258
-#define KEY_GESTURE_DOWN                        259
-#define KEY_GESTURE_LEFT                        260
-#define KEY_GESTURE_RIGHT                       261
-#define KEY_GESTURE_O                           262
-#define KEY_GESTURE_E                           263
-#define KEY_GESTURE_M                           264
-#define KEY_GESTURE_L                           265
-#define KEY_GESTURE_W                           266
-#define KEY_GESTURE_S                           267
-#define KEY_GESTURE_V                           268
-#define KEY_GESTURE_C                           269
-#define KEY_GESTURE_Z                           270
+#define KEY_GESTURE_U                           KEY_U
+#define KEY_GESTURE_UP                          KEY_UP
+#define KEY_GESTURE_DOWN                        KEY_DOWN
+#define KEY_GESTURE_LEFT                        KEY_LEFT
+#define KEY_GESTURE_RIGHT                       KEY_RIGHT
+#define KEY_GESTURE_O                           KEY_O
+#define KEY_GESTURE_E                           KEY_E
+#define KEY_GESTURE_M                           KEY_M
+#define KEY_GESTURE_L                           KEY_L
+#define KEY_GESTURE_W                           KEY_W
+#define KEY_GESTURE_S                           KEY_S
+#define KEY_GESTURE_V                           KEY_V
+#define KEY_GESTURE_C                           KEY_C
+#define KEY_GESTURE_Z                           KEY_Z
 
 #define GESTURE_LEFT                            0x20
 #define GESTURE_RIGHT                           0x21
@@ -70,13 +70,13 @@
 #define FTS_GESTRUE_POINTS_HEADER               8
 
 //<ASUS-BSP tyree_liu 20180109> add gesture function  ++++++
-#define GESTURE_SWITCH                          0x40
-#define W_SWITCH                                0x20
-#define S_SWITCH                                0x10
+#define GESTURE_SWITCH                          0x01
+#define W_SWITCH                                0x02
+#define S_SWITCH                                0x04
 #define E_SWITCH                                0x08
-#define C_SWITCH                                0x04
-#define Z_SWITCH                                0x02
-#define V_SWITCH                                0x01
+#define C_SWITCH                                0x10
+#define Z_SWITCH                                0x20
+#define V_SWITCH                                0x40
 //<ASUS-BSP tyree_liu 20180109> add gesture function  ------
 
 /*****************************************************************************
@@ -170,6 +170,167 @@ static struct attribute_group fts_gesture_group = {
     .attrs = fts_gesture_mode_attrs,
 };
 
+//asus_bsp add for gesture proc node +++
+static ssize_t gesture_dclick_proc_write(struct file *filp, const char __user *buff, size_t len, loff_t *off){
+    char msg[256];
+	memset(msg, 0, sizeof(msg));
+	if (len > 256)
+		len = 256;
+	if (copy_from_user(msg, buff, len))
+		return -EFAULT;
+
+    mutex_lock(&fts_data->report_mutex);
+	if (strncmp(msg, "1", 1) == 0) {
+		FTS_INFO("[GESTURE]enable double click mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        dclick_report_flag = true;
+	} else if(strncmp(msg, "0", 1) == 0) {
+		FTS_INFO("[GESTURE]disable double click mode");
+        //fts_gesture_data.mode = DISABLE;
+        dclick_report_flag = false;
+        if ((gesture_detect & GESTURE_SWITCH) || swipe_report_flag || dclick_report_flag) {
+		    fts_gesture_data.mode = ENABLE;
+		    fts_gesture_mode_en = ENABLE;
+		}else {
+		    fts_gesture_data.mode = DISABLE;
+		    fts_gesture_mode_en = DISABLE;
+		}
+	}
+    mutex_unlock(&fts_data->report_mutex);
+	return len;
+}
+
+static ssize_t gesture_dclick_proc_read(struct file *filp, char __user *buff, size_t len, loff_t *off){
+    char msg[256];
+
+    if (*off)
+        return 0;
+    memset(msg, 0, sizeof(msg));
+    if (len > 256)
+        len = 256;
+
+    sprintf(msg, "%d\n",dclick_report_flag);
+    if (copy_to_user(buff, msg, len))
+        return -EFAULT;
+
+    (*off)++;
+    return len;
+}
+
+static ssize_t gesture_swipeup_proc_write(struct file *filp, const char __user *buff, size_t len, loff_t *off){
+    char msg[256];
+	memset(msg, 0, sizeof(msg));
+	if (len > 256)
+		len = 256;
+	if (copy_from_user(msg, buff, len))
+		return -EFAULT;
+
+    mutex_lock(&fts_data->report_mutex);
+	if (strncmp(msg, "1", 1) == 0) {
+		FTS_INFO("[GESTURE]enable swipe mode");
+        fts_gesture_data.mode = ENABLE;
+        fts_gesture_mode_en = ENABLE;
+        swipe_report_flag = true;
+	} else if(strncmp(msg, "0", 1) == 0) {
+		FTS_INFO("[GESTURE]disable swipe mode");
+        //fts_gesture_data.mode = DISABLE;
+        swipe_report_flag = false;
+        if ((gesture_detect & GESTURE_SWITCH) || swipe_report_flag || dclick_report_flag) {
+		    fts_gesture_data.mode = ENABLE;
+		    fts_gesture_mode_en = ENABLE;
+		}
+	    else {
+		    fts_gesture_data.mode = DISABLE;
+		    fts_gesture_mode_en = DISABLE;
+		}
+	}
+    mutex_unlock(&fts_data->report_mutex);
+	return len;
+}
+
+static ssize_t gesture_swipeup_proc_read(struct file *filp, char __user *buff, size_t len, loff_t *off){
+    char msg[256];
+
+    if (*off)
+        return 0;
+    memset(msg, 0, sizeof(msg));
+    if (len > 256)
+        len = 256;
+
+    sprintf(msg, "%d\n",swipe_report_flag);
+    if (copy_to_user(buff, msg, len))
+        return -EFAULT;
+
+    (*off)++;
+    return len;
+}
+
+static ssize_t gesture_type_proc_write(struct file *filp, const char __user *buff, size_t len, loff_t *off){
+	char input[7] = {0};
+    char buf[7];
+	int value = 0;
+	int i;
+
+    memset(buf, 0, sizeof(buf));
+	if (len > 7)
+		len = 7;
+	if (copy_from_user(buf, buff, len))
+		return -EFAULT;
+
+	if(sscanf(buf,"%s",input) != 1)
+		return -EINVAL;
+
+	for( i=0; i<len; i++)
+	{
+        value = value *2;
+        value += (((int)input[i])-48);
+	}
+
+	gesture_detect = value;
+	printk("[FTS][TOUCH] gesture_mode: %x\n",gesture_detect);
+
+	if ((gesture_detect & GESTURE_SWITCH) || swipe_report_flag || dclick_report_flag) {
+		fts_gesture_data.mode = ENABLE;
+		fts_gesture_mode_en = ENABLE;
+	}
+	else{
+		fts_gesture_data.mode = DISABLE;
+		fts_gesture_mode_en = DISABLE;
+	}
+    return len;
+}
+
+static ssize_t gesture_type_proc_read(struct file *filp, char __user *buff, size_t len, loff_t *off){
+    char msg[256];
+
+    if (*off)
+        return 0;
+    memset(msg, 0, sizeof(msg));
+    if (len > 256)
+        len = 256;
+
+    sprintf(msg, "%d\n",gesture_detect);
+    if (copy_to_user(buff, msg, len))
+        return -EFAULT;
+
+    (*off)++;
+    return len;
+}
+
+static struct file_operations gesture_dclick_proc_ops = {
+      .write = gesture_dclick_proc_write,
+      .read = gesture_dclick_proc_read,
+};
+static struct file_operations gesture_swipeup_proc_ops = {
+      .write = gesture_swipeup_proc_write,
+      .read = gesture_swipeup_proc_read,
+};
+static struct file_operations gesture_type_proc_ops = {
+      .write = gesture_type_proc_write,
+      .read = gesture_type_proc_read,
+};
+//asus_bsp add for gesture proc node ---
 /************************************************************************
 * Name: fts_gesture_show
 *  Brief:
@@ -271,7 +432,7 @@ static ssize_t fts_gesture_buf_store(struct device *dev, struct device_attribute
 	gesture_detect = value;
 	printk("[FTS][TOUCH] gesture_mode: %x\n",gesture_detect);
 
-	if ((gesture_detect & 0x40) || swipe_report_flag || dclick_report_flag) {
+	if ((gesture_detect & GESTURE_SWITCH) || swipe_report_flag || dclick_report_flag) {
 		fts_gesture_data.mode = ENABLE;
 		fts_gesture_mode_en = ENABLE;
 	}
@@ -339,7 +500,7 @@ static ssize_t fts_dclick_store(struct device *dev,
         FTS_INFO("[GESTURE]disable double click mode");
         //fts_gesture_data.mode = DISABLE;
         dclick_report_flag = false;
-        if ((gesture_detect & 0x40) || swipe_report_flag || dclick_report_flag) {
+        if ((gesture_detect & GESTURE_SWITCH) || swipe_report_flag || dclick_report_flag) {
 		    fts_gesture_data.mode = ENABLE;
 		    fts_gesture_mode_en = ENABLE;
 		}else {
@@ -388,7 +549,7 @@ static ssize_t fts_swipe_store(struct device *dev,
         FTS_INFO("[GESTURE]disable swipe mode");
         //fts_gesture_data.mode = DISABLE;
         swipe_report_flag = false;
-        if ((gesture_detect & 0x40) || swipe_report_flag || dclick_report_flag) {
+        if ((gesture_detect & GESTURE_SWITCH) || swipe_report_flag || dclick_report_flag) {
 		    fts_gesture_data.mode = ENABLE;
 		    fts_gesture_mode_en = ENABLE;
 		}
@@ -821,6 +982,11 @@ int fts_gesture_init(struct fts_ts_data *ts_data)
     fts_gesture_data.mode = DISABLE;
     fts_gesture_mode_en = DISABLE;
 
+    //asus_bsp add for gesture proc node +++
+    proc_create("driver/dclick", 0666, NULL, &gesture_dclick_proc_ops);
+    proc_create("driver/swipeup", 0666, NULL, &gesture_swipeup_proc_ops);
+    proc_create("driver/gesture_type", 0666, NULL, &gesture_type_proc_ops);
+    //asus_bsp add for gesture proc node ---
     FTS_FUNC_EXIT();
     return 0;
 }

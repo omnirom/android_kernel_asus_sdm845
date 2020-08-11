@@ -4026,6 +4026,7 @@ struct afe_lpass_core_shared_clk_config_command {
 //asus_bsp++
 #define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_SPK_P 0x10314
 #define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_HP 0x20314
+#define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_USBHP 0x10028026
 //asus_bsp--
 
 /* Memory map regions command payload used by the

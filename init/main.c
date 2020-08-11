@@ -173,26 +173,6 @@ static int get_hw_id(char *str)
 __setup("HW=", get_hw_id);
 //ASUS_BSP add asus_hw_id++++
 
-//ASUS_BSP add recovery_mode_flag++++
-bool g_asus_recovery_mode = false;
-EXPORT_SYMBOL(g_asus_recovery_mode);
-
-static int get_recovery_mode(char *str)
-{
-    char recovery_mode_str[2] = {0};
-    strncpy(recovery_mode_str, str, sizeof(recovery_mode_str));
-    if (0 == strncmp(recovery_mode_str, "Y", sizeof(recovery_mode_str))) {
-        g_asus_recovery_mode = true;
-    } else {
-        g_asus_recovery_mode = false;
-    }
-    pr_err(" [Recovery]recovery mode = %d(%s)\n ", g_asus_recovery_mode, recovery_mode_str);
-
-	return 0;
-}
-__setup("recovery_mode=", get_recovery_mode);
-//ASUS_BSP add recovery_mode_flag---
-
 //ASUS_BSP add charger_mode flag+++
 bool g_charger_mode = false;
 static int set_charger_mode(char *str)
@@ -209,108 +189,24 @@ __setup("androidboot.mode=", set_charger_mode);
 EXPORT_SYMBOL(g_charger_mode);
 //ASUS_BSP add charger_mode flag---
 
-//ASUS_BSP add read unique_id for factory++++
-char lcd_unique_id[64] = {0};
-EXPORT_SYMBOL(lcd_unique_id);
-
-static int get_lcd_uniqueId(char *str)
+//[+++]ASUS : Add for COUNTRY
+bool g_Country_RU = false;
+bool g_Country_WW = false;
+static int get_country_code(char *str)
 {
-    strncpy(lcd_unique_id, str, sizeof(lcd_unique_id));
-    pr_err(" [Display]lcd_unique_id = %s\n ", lcd_unique_id);
 
-	return 0;
+    if ( strcmp("RU", str) == 0 )
+        g_Country_RU = true;
+    else 
+        g_Country_WW = true;
+
+	printk("COUNTRY=%s\n", str);
+    return 0;
 }
-__setup("LCD=", get_lcd_uniqueId);
-//ASUS_BSP add read unique_id for factory----
-
-char lcd_id1[64] = {0};
-EXPORT_SYMBOL(lcd_id1);
-
-static int get_lcd_Id(char *str)
-{
-    strncpy(lcd_id1, str, sizeof(lcd_id1));
-    pr_err(" [Display]lcd_id1 = 0x%s\n ", lcd_id1);
-
-	return 0;
-}
-__setup("LCD_ID1=", get_lcd_Id);
-
-char lcd_stage_id[64] = {0};
-EXPORT_SYMBOL(lcd_stage_id);
-
-static int get_lcd_stageId(char *str)
-{
-    strncpy(lcd_stage_id, str, sizeof(lcd_stage_id));
-    pr_err(" [Display]lcd_stage_id = %s\n ", lcd_stage_id);
-
-	return 0;
-}
-__setup("StageID=", get_lcd_stageId);
-
-
-char build_version[64] = {0};
-EXPORT_SYMBOL(build_version);
-
-static int get_build_version(char *str)
-{
-    strncpy(build_version, str, sizeof(build_version));
-    pr_err(" [BuiildV]build_version = %s\n ", build_version);
-
-	return 0;
-}
-__setup("buildv=", get_build_version);
-
-
-
-//ASUS_BSP add asus_prj_id++++
-int g_asus_prj_id = 0;
-EXPORT_SYMBOL(g_asus_prj_id);
-
-static int get_prj_id(char *str)
-{
-    char prj_id_str[10] = {0};
-    strncpy(prj_id_str, str, sizeof(prj_id_str));
-
-    if (0 == strncmp(prj_id_str, "ZS620KL", sizeof(prj_id_str))) {
-        g_asus_prj_id = 0;
-    } else if (0 == strncmp(prj_id_str, "ZS620KL2", sizeof(prj_id_str))) {
-        g_asus_prj_id = 1;
-    } else {
-        pr_err(" unknown prj_id_str = %s\n ", prj_id_str);
-    }
-
-    pr_err(" asus_prj_id = %d\n ", g_asus_prj_id);
-
-	return 0;
-}
-__setup("PRJ=", get_prj_id);
-//ASUS_BSP add asus_prj_id++++
-
-//ASUS_BSP add bat_reload_condition++++
-int g_bat_reload_cond = 0;
-EXPORT_SYMBOL(g_bat_reload_cond);
-
-static int get_bat_reload_condition(char *str)
-{
-    char reload_cond_str[2] = {0};
-    strncpy(reload_cond_str, str, sizeof(reload_cond_str));
-
-    if (0 == strncmp(reload_cond_str, "0", sizeof(reload_cond_str))) {
-        g_bat_reload_cond = 0;
-    } else if (0 == strncmp(reload_cond_str, "1", sizeof(reload_cond_str))) {
-        g_bat_reload_cond = 1;
-    } else if (0 == strncmp(reload_cond_str, "2", sizeof(reload_cond_str))) {
-        g_bat_reload_cond = 2;
-    } else {
-        pr_err(" unknown reload_cond_str = %s\n ", reload_cond_str);
-    }
-
-    pr_err(" g_bat_reload_cond = %d\n ", g_bat_reload_cond);
-
-	return 0;
-}
-__setup("bat_reload_cond=", get_bat_reload_condition);
-//ASUS_BSP add bat_reload_condition----
+__setup("CountryCode=", get_country_code);
+EXPORT_SYMBOL(g_Country_RU);
+EXPORT_SYMBOL(g_Country_WW);
+//[---]ASUS : Add for COUNTRY
 
 /*
  * If set, this is an indication to the drivers that reset the underlying
@@ -366,6 +262,115 @@ static bool __init obsolete_checksetup(char *line)
 
 	return had_early_param;
 }
+
+//ASUS_BSP add read unique_id for factory++++
+char lcd_unique_id[64] = {0};
+EXPORT_SYMBOL(lcd_unique_id);
+
+static int get_lcd_uniqueId(char *str)
+{
+    strncpy(lcd_unique_id, str, sizeof(lcd_unique_id));
+    pr_err(" [Display]lcd_unique_id = %s\n ", lcd_unique_id);
+
+	return 0;
+}
+__setup("LCD=", get_lcd_uniqueId);
+//ASUS_BSP add read unique_id for factory----
+
+char lcd_id1[64] = {0};
+EXPORT_SYMBOL(lcd_id1);
+
+static int get_lcd_Id(char *str)
+{
+    strncpy(lcd_id1, str, sizeof(lcd_id1));
+    pr_err(" [Display]lcd_id1 = 0x%s\n ", lcd_id1);
+
+	return 0;
+}
+__setup("LCD_ID1=", get_lcd_Id);
+
+char lcd_stage_id[64] = {0};
+EXPORT_SYMBOL(lcd_stage_id);
+
+static int get_lcd_stageId(char *str)
+{
+    strncpy(lcd_stage_id, str, sizeof(lcd_stage_id));
+    pr_err(" [Display]lcd_stage_id = %s\n ", lcd_stage_id);
+
+	return 0;
+}
+__setup("StageID=", get_lcd_stageId);
+
+//ASUS_BSP add recovery_mode_flag++++
+bool g_asus_recovery_mode = false;
+EXPORT_SYMBOL(g_asus_recovery_mode);
+
+static int get_recovery_mode(char *str)
+{
+    char recovery_mode_str[2] = {0};
+    strncpy(recovery_mode_str, str, sizeof(recovery_mode_str));
+    if (0 == strncmp(recovery_mode_str, "Y", sizeof(recovery_mode_str))) {
+        g_asus_recovery_mode = true;
+    } else {
+        g_asus_recovery_mode = false;
+    }
+    pr_err(" [Recovery]recovery mode = %d(%s)\n ", g_asus_recovery_mode, recovery_mode_str);
+
+	return 0;
+}
+__setup("recovery_mode=", get_recovery_mode);
+//ASUS_BSP add recovery_mode_flag---
+
+
+//ASUS_BSP add asus_prj_id++++
+int g_asus_prj_id = 0;
+EXPORT_SYMBOL(g_asus_prj_id);
+
+static int get_prj_id(char *str)
+{
+    char prj_id_str[10] = {0};
+    strncpy(prj_id_str, str, sizeof(prj_id_str));
+
+    if (0 == strncmp(prj_id_str, "ZS620KL", sizeof(prj_id_str))) {
+        g_asus_prj_id = 0;
+    } else if (0 == strncmp(prj_id_str, "ZS620KL2", sizeof(prj_id_str))) {
+        g_asus_prj_id = 1;
+    } else {
+        pr_err(" unknown prj_id_str = %s\n ", prj_id_str);
+    }
+
+    pr_err(" asus_prj_id = %d\n ", g_asus_prj_id);
+
+	return 0;
+}
+__setup("PRJ=", get_prj_id);
+//ASUS_BSP add asus_prj_id++++
+
+//ASUS_BSP add bat_reload_condition++++
+int g_bat_reload_cond = 0;
+EXPORT_SYMBOL(g_bat_reload_cond);
+
+static int get_bat_reload_condition(char *str)
+{
+    char reload_cond_str[2] = {0};
+    strncpy(reload_cond_str, str, sizeof(reload_cond_str));
+
+    if (0 == strncmp(reload_cond_str, "0", sizeof(reload_cond_str))) {
+        g_bat_reload_cond = 0;
+    } else if (0 == strncmp(reload_cond_str, "1", sizeof(reload_cond_str))) {
+        g_bat_reload_cond = 1;
+    } else if (0 == strncmp(reload_cond_str, "2", sizeof(reload_cond_str))) {
+        g_bat_reload_cond = 2;
+    } else {
+        pr_err(" unknown reload_cond_str = %s\n ", reload_cond_str);
+    }
+
+    pr_err(" g_bat_reload_cond = %d\n ", g_bat_reload_cond);
+
+	return 0;
+}
+__setup("bat_reload_cond=", get_bat_reload_condition);
+//ASUS_BSP add bat_reload_condition----
 
 /*
  * This should be approx 2 Bo*oMips to start (note initial shift), and will
@@ -482,6 +487,21 @@ static int set_user_rtb_mode(char *str)
 early_param("rtb_enable", set_user_rtb_mode);
 //ASUS_BSP younger : Add for rtb log  ---
 
+
+//ASUS_BSP Younger : Add for buildver +++
+
+char asus_build_ver[64] = {0};
+EXPORT_SYMBOL(asus_build_ver);
+
+static int get_asus_build_ver(char *str)
+{
+    strncpy(asus_build_ver, str, sizeof(asus_build_ver));
+    pr_err(" [BUILDVER]asus_build_ver = %s\n ", asus_build_ver);
+
+	return 0;
+}
+__setup("buildv=", get_asus_build_ver);
+//ASUS_BSP Younger :  Add for buildver  ---
 
 /* Change NUL term back to "=", to make "param" the whole string. */
 static int __init repair_env_string(char *param, char *val,
@@ -766,6 +786,8 @@ asmlinkage __visible void __init start_kernel(void)
 	page_alloc_init();
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
+	/* parameters may set static keys */
+	jump_label_init();
 	parse_early_param();
 	after_dashes = parse_args("Booting kernel",
 				  static_command_line, __start___param,
@@ -774,8 +796,6 @@ asmlinkage __visible void __init start_kernel(void)
 	if (!IS_ERR_OR_NULL(after_dashes))
 		parse_args("Setting init args", after_dashes, NULL, 0, -1, -1,
 			   NULL, set_init_arg);
-
-	jump_label_init();
 
 	/*
 	 * These use large bootmem allocations and must precede
@@ -803,6 +823,14 @@ asmlinkage __visible void __init start_kernel(void)
 		 "Interrupts were enabled *very* early, fixing it\n"))
 		local_irq_disable();
 	idr_init_cache();
+
+	/*
+	 * Allow workqueue creation and work item queueing/cancelling
+	 * early.  Work item execution depends on kthreads and starts after
+	 * workqueue_init().
+	 */
+	workqueue_init_early();
+
 	rcu_init();
 
 	/* trace_printk() and trace points may be used after this */
@@ -888,9 +916,8 @@ asmlinkage __visible void __init start_kernel(void)
 	security_init();
 	dbg_late_init();
 	vfs_caches_init();
+	pagecache_init();
 	signals_init();
-	/* rootfs populating might need page-writeback */
-	page_writeback_init();
 	proc_root_init();
 	nsfs_init();
 	cpuset_init();
@@ -912,6 +939,8 @@ asmlinkage __visible void __init start_kernel(void)
 
 	/* Do the rest non-__init'ed, we're now alive */
 	rest_init();
+
+	prevent_tail_call_optimization();
 }
 
 /* Call all constructor functions linked into the kernel. */
@@ -1256,6 +1285,8 @@ static noinline void __init kernel_init_freeable(void)
 	cad_pid = task_pid(current);
 
 	smp_prepare_cpus(setup_max_cpus);
+
+	workqueue_init();
 
 	do_pre_smp_initcalls();
 	lockup_detector_init();

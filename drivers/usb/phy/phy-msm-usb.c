@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2018, Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2019, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -218,6 +218,7 @@ struct msm_otg_platform_data {
 };
 
 #define SDP_CHECK_DELAY_MS 10000 /* in ms */
+#define SDP_CHECK_BOOT_DELAY_MS 30000 /* in ms */
 
 #define MSM_USB_BASE	(motg->regs)
 #define MSM_USB_PHY_CSR_BASE (motg->phy_csr_regs)
@@ -879,6 +880,8 @@ static void msm_usb_phy_reset(struct msm_otg *motg)
 	mb();
 }
 
+static void msm_chg_block_on(struct msm_otg *);
+
 static int msm_otg_reset(struct usb_phy *phy)
 {
 	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
@@ -976,6 +979,9 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 * Disable USB BAM as block reset resets USB BAM registers.
 	 */
 	msm_usb_bam_enable(CI_CTRL, false);
+
+	if (phy->otg->state == OTG_STATE_UNDEFINED && motg->rm_pulldown)
+		msm_chg_block_on(motg);
 
 	return 0;
 }
@@ -1638,12 +1644,14 @@ phcd_retry:
 
 	atomic_set(&motg->in_lpm, 1);
 
-	/* Enable ASYNC IRQ during LPM */
-	enable_irq(motg->async_irq);
+	if (host_bus_suspend || device_bus_suspend) {
+		/* Enable ASYNC IRQ during LPM */
+		enable_irq(motg->async_irq);
+		enable_irq(motg->irq);
+	}
 	if (motg->phy_irq)
 		enable_irq(motg->phy_irq);
 
-	enable_irq(motg->irq);
 	pm_relax(&motg->pdev->dev);
 
 	dev_dbg(phy->dev, "LPM caps = %lu flags = %lu\n",
@@ -1688,10 +1696,12 @@ static int msm_otg_resume(struct msm_otg *motg)
 		return 0;
 	}
 
-	disable_irq(motg->irq);
+	pm_stay_awake(&motg->pdev->dev);
 	if (motg->phy_irq)
 		disable_irq(motg->phy_irq);
-	pm_stay_awake(&motg->pdev->dev);
+
+	if (motg->host_bus_suspend || motg->device_bus_suspend)
+		disable_irq(motg->irq);
 
 	/*
 	 * If we are resuming from the device bus suspend, restore
@@ -1814,7 +1824,8 @@ skip_phy_resume:
 	enable_irq(motg->irq);
 
 	/* Enable ASYNC_IRQ only during LPM */
-	disable_irq(motg->async_irq);
+	if (motg->host_bus_suspend || motg->device_bus_suspend)
+		disable_irq(motg->async_irq);
 
 	if (motg->phy_irq_pending) {
 		motg->phy_irq_pending = false;
@@ -1909,12 +1920,13 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned int mA)
 							motg->chg_type);
 
 	psy_type = get_psy_type(motg);
-	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
-		if (!mA)
+	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT ||
+		(psy_type == POWER_SUPPLY_TYPE_USB &&
+			motg->enable_sdp_check_timer)) {
+		if (!mA) {
 			pval.intval = -ETIMEDOUT;
-		else
-			pval.intval = 1000 * mA;
-		goto set_prop;
+			goto set_prop;
+		}
 	}
 
 	if (motg->cur_power == mA)
@@ -2453,6 +2465,7 @@ static void msm_chg_block_on(struct msm_otg *motg)
 	u32 func_ctrl;
 
 	/* put the controller in non-driving mode */
+	msm_otg_dbg_log_event(&motg->phy, "PHY NON DRIVE", 0, 0);
 	func_ctrl = ulpi_read(phy, ULPI_FUNC_CTRL);
 	func_ctrl &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
 	func_ctrl |= ULPI_FUNC_CTRL_OPMODE_NONDRIVING;
@@ -2482,10 +2495,34 @@ static void msm_chg_block_off(struct msm_otg *motg)
 	ulpi_write(phy, 0x6, 0xB);
 
 	/* put the controller in normal mode */
+	msm_otg_dbg_log_event(&motg->phy, "PHY MODE NORMAL", 0, 0);
 	func_ctrl = ulpi_read(phy, ULPI_FUNC_CTRL);
 	func_ctrl &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
 	func_ctrl |= ULPI_FUNC_CTRL_OPMODE_NORMAL;
 	ulpi_write(phy, func_ctrl, ULPI_FUNC_CTRL);
+}
+
+static void msm_otg_set_mode_nondriving(struct msm_otg *motg,
+					bool mode_nondriving)
+{
+	clk_prepare_enable(motg->xo_clk);
+	clk_prepare_enable(motg->phy_csr_clk);
+	clk_prepare_enable(motg->core_clk);
+	clk_prepare_enable(motg->pclk);
+
+	msm_otg_exit_phy_retention(motg);
+
+	if (mode_nondriving)
+		msm_chg_block_on(motg);
+	else
+		msm_chg_block_off(motg);
+
+	msm_otg_enter_phy_retention(motg);
+
+	clk_disable_unprepare(motg->pclk);
+	clk_disable_unprepare(motg->core_clk);
+	clk_disable_unprepare(motg->phy_csr_clk);
+	clk_disable_unprepare(motg->xo_clk);
 }
 
 #define MSM_CHG_DCD_TIMEOUT		(750 * HZ/1000) /* 750 msec */
@@ -2740,7 +2777,7 @@ static void check_for_sdp_connection(struct work_struct *w)
 	struct msm_otg *motg = container_of(w, struct msm_otg, sdp_check.work);
 
 	/* Cable disconnected or device enumerated as SDP */
-	if (!motg->vbus_state || motg->phy.otg->gadget->state >=
+	if (!motg->vbus_state || motg->phy.otg->gadget->state >
 							USB_STATE_DEFAULT)
 		return;
 
@@ -2821,13 +2858,18 @@ static void msm_otg_sm_work(struct work_struct *w)
 				break;
 			}
 
-			if (get_psy_type(motg) == POWER_SUPPLY_TYPE_USB_FLOAT)
-				queue_delayed_work(motg->otg_wq,
-				  &motg->sdp_check,
-				  msecs_to_jiffies(SDP_CHECK_DELAY_MS));
-
 			pm_runtime_get_sync(otg->usb_phy->dev);
 			msm_otg_start_peripheral(otg, 1);
+			if (get_psy_type(motg) == POWER_SUPPLY_TYPE_USB_FLOAT ||
+				(get_psy_type(motg) == POWER_SUPPLY_TYPE_USB &&
+				motg->enable_sdp_check_timer)) {
+				queue_delayed_work(motg->otg_wq,
+					&motg->sdp_check,
+					msecs_to_jiffies(
+					(phy->flags & PHY_SOFT_CONNECT) ?
+					SDP_CHECK_DELAY_MS :
+					SDP_CHECK_BOOT_DELAY_MS));
+			}
 			otg->state = OTG_STATE_B_PERIPHERAL;
 		} else {
 			pr_debug("Cable disconnected\n");
@@ -3305,14 +3347,23 @@ static int msm_otg_dpdm_regulator_enable(struct regulator_dev *rdev)
 {
 	int ret = 0;
 	struct msm_otg *motg = rdev_get_drvdata(rdev);
+	struct usb_phy *phy = &motg->phy;
 
 	if (!motg->rm_pulldown) {
+		msm_otg_dbg_log_event(&motg->phy, "Disable Pulldown",
+				      motg->rm_pulldown, 0);
 		ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_3P3_ON);
-		if (!ret) {
-			motg->rm_pulldown = true;
-			msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
-					motg->rm_pulldown, 0);
-		}
+		if (ret)
+			return ret;
+
+		motg->rm_pulldown = true;
+		/* Don't reset h/w if previous disconnect handling is pending */
+		if (phy->otg->state == OTG_STATE_B_IDLE ||
+		    phy->otg->state == OTG_STATE_UNDEFINED)
+			msm_otg_set_mode_nondriving(motg, true);
+		else
+			msm_otg_dbg_log_event(&motg->phy, "NonDrv err",
+					      motg->rm_pulldown, 0);
 	}
 
 	return ret;
@@ -3322,14 +3373,21 @@ static int msm_otg_dpdm_regulator_disable(struct regulator_dev *rdev)
 {
 	int ret = 0;
 	struct msm_otg *motg = rdev_get_drvdata(rdev);
+	struct usb_phy *phy = &motg->phy;
 
 	if (motg->rm_pulldown) {
+		/* Let sm_work handle it if USB core is active */
+		if (phy->otg->state == OTG_STATE_B_IDLE ||
+		    phy->otg->state == OTG_STATE_UNDEFINED)
+			msm_otg_set_mode_nondriving(motg, false);
+
 		ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_3P3_OFF);
-		if (!ret) {
-			motg->rm_pulldown = false;
-			msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
-					motg->rm_pulldown, 0);
-		}
+		if (ret)
+			return ret;
+
+		motg->rm_pulldown = false;
+		msm_otg_dbg_log_event(&motg->phy, "EN Pulldown",
+				      motg->rm_pulldown, 0);
 	}
 
 	return ret;
@@ -3676,6 +3734,11 @@ static int msm_otg_extcon_register(struct msm_otg *motg)
 	struct extcon_dev *edev;
 	int ret = 0;
 
+	if (motg->extcon_registered) {
+		dev_info(&motg->pdev->dev, "extcon_nb already registered\n");
+		return 0;
+	}
+
 	if (!of_property_read_bool(node, "extcon"))
 		return 0;
 
@@ -3712,6 +3775,7 @@ static int msm_otg_extcon_register(struct msm_otg *motg)
 			goto err;
 		}
 	}
+	motg->extcon_registered = true;
 
 	return 0;
 err:
@@ -4059,6 +4123,9 @@ static int msm_otg_probe(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node, "qcom,pm-qos-latency",
 				&motg->pm_qos_latency);
 
+	motg->enable_sdp_check_timer = of_property_read_bool(pdev->dev.of_node,
+				"qcom,enumeration-check-for-sdp");
+
 	pdata = msm_otg_dt_to_pdata(pdev);
 	if (!pdata) {
 		ret = -ENOMEM;
@@ -4312,7 +4379,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&motg->sdp_check, check_for_sdp_connection);
 	INIT_WORK(&motg->notify_charger_work, msm_otg_notify_charger_work);
 	INIT_WORK(&motg->extcon_register_work, msm_otg_extcon_register_work);
-	motg->otg_wq = alloc_ordered_workqueue("k_otg", 0);
+	motg->otg_wq = alloc_ordered_workqueue("k_otg", WQ_FREEZABLE);
 	if (!motg->otg_wq) {
 		pr_err("%s: Unable to create workqueue otg_wq\n",
 			__func__);

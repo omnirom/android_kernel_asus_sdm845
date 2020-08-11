@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8684,6 +8684,13 @@ static int tavil_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return 0;
 }
 
+static int tavil_set_dai_sysclk(struct snd_soc_dai *dai,
+		int clk_id, unsigned int freq, int dir)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
 static struct snd_soc_dai_ops tavil_dai_ops = {
 	.startup = tavil_startup,
 	.shutdown = tavil_shutdown,
@@ -8698,6 +8705,7 @@ static struct snd_soc_dai_ops tavil_i2s_dai_ops = {
 	.shutdown = tavil_shutdown,
 	.hw_params = tavil_hw_params,
 	.prepare = tavil_prepare,
+	.set_sysclk = tavil_set_dai_sysclk,
 	.set_fmt = tavil_set_dai_fmt,
 };
 
@@ -10088,78 +10096,6 @@ done:
 	return ret;
 }
 
-//modify for headset status +++
-#define HEADSET_STATUS_PROC_FILE "driver/headset_status"
- 
-static struct proc_dir_entry *headset_status_proc_file;
-
-static ssize_t headset_status_proc_read(struct file *filp, char __user *buff, size_t len, loff_t *off)
-{
-       char messages[256];
-       struct tavil_priv *tavil;
-
-		if (!registered_codec) {
-			pr_err("%s: Invalid params, NULL codec\n", __func__);
-			return 0;
-		}
-		
-	    tavil= snd_soc_codec_get_drvdata(registered_codec);
-	    
-		if (!tavil) {
-			pr_err("%s: Invalid params, NULL tavil\n", __func__);
-			return 0;
-		}
-
-       if (*off)
-			return 0;
-
-       memset(messages, 0, sizeof(messages));
-       if (len > 256)
-			len = 256;
-
-	   switch (tavil->mbhc->wcd_mbhc.current_plug) {
-	   case MBHC_PLUG_TYPE_HEADSET:
-			   sprintf(messages, "1\n");
-			   break;
-	   case MBHC_PLUG_TYPE_HEADPHONE:
-			   sprintf(messages, "2\n");
-			   break;
-	   case MBHC_PLUG_TYPE_HIGH_HPH:
-			   sprintf(messages, "3\n");
-			   break;
-	   case MBHC_PLUG_TYPE_GND_MIC_SWAP:
-			   sprintf(messages, "4\n");
-			   break;
-	   case MBHC_PLUG_TYPE_ANC_HEADPHONE:
-			   sprintf(messages, "5\n");
-			   break;
-	   default:
-			   sprintf(messages, "0\n");
-			   break;
-	   }
-
-       if (copy_to_user(buff, messages, len))
-               return -EFAULT;
-
-       (*off)++;
-       return len;
-}
-
-static struct file_operations headset_status_proc_ops = {
-      .read = headset_status_proc_read,
-};
-
-static void create_headset_status_proc_file(void)
-{
-	printk("create_headset_status_proc_file\n");
-	headset_status_proc_file = proc_create(HEADSET_STATUS_PROC_FILE, 0666, NULL, &headset_status_proc_ops);
-
-	if (headset_status_proc_file == NULL)
-		printk("create_headset_status_proc_file failed\n");
-
-}
-//modify for headset status ---
-
 static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -10329,10 +10265,6 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	 * can be released allowing the codec to go to SVS2.
 	 */
 	tavil_vote_svs(tavil, false);
-
-//modify for headset status +++
-	create_headset_status_proc_file();
-//modify for headset status ---
 
 	return ret;
 

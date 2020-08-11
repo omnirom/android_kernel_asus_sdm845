@@ -67,7 +67,6 @@ static uint32_t reg_dma_register_count;
 static uint32_t reg_dma_intr_status_offset;
 static uint32_t reg_dma_intr_4_status_offset;
 static uint32_t reg_dma_intr_clear_offset;
-static uint32_t reg_dma_error_clear_mask;
 
 typedef int (*reg_dma_internal_ops) (struct sde_reg_dma_setup_ops_cfg *cfg);
 
@@ -492,7 +491,7 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	val = SDE_REG_READ(&hw, reg_dma_intr_4_status_offset);
 	if (val) {
 		DRM_DEBUG("LUT dma status %x\n", val);
-		mask = reg_dma_error_clear_mask;
+		mask = BIT(0) | BIT(1) | BIT(2) | BIT(16);
 		SDE_REG_WRITE(&hw, reg_dma_intr_clear_offset + sizeof(u32) * 4,
 			mask);
 		SDE_EVT32(val);
@@ -564,7 +563,6 @@ int init_v1(struct sde_hw_reg_dma *cfg)
 	reg_dma_intr_status_offset = 0x90;
 	reg_dma_intr_4_status_offset = 0xa0;
 	reg_dma_intr_clear_offset = 0xb0;
-	reg_dma_error_clear_mask = BIT(0) | BIT(1) | BIT(2) | BIT(16);
 
 	return 0;
 }

@@ -593,6 +593,14 @@ static ssize_t wake_lock_store(struct kobject *kobj,
 			       const char *buf, size_t n)
 {
 	int error = pm_wake_lock(buf);
+	int ret = strcmp(buf,"PowerManager.SuspendLockout");
+	if(0 == ret) {
+		pr_info("[PM]dump_wakeup_sources_timer_store: timer off\n");
+		framework_display_on = true;
+		printk("[PM]request_suspend_state: (3->0)");
+		ASUSEvtlog("[PM]request_suspend_state: (3->0)");
+		del_timer (&dump_wakeup_sources_timer);
+	}
 	return error ? error : n;
 }
 
@@ -610,6 +618,15 @@ static ssize_t wake_unlock_store(struct kobject *kobj,
 				 const char *buf, size_t n)
 {
 	int error = pm_wake_unlock(buf);
+	int ret = strcmp(buf,"PowerManager.SuspendLockout");
+	if(0 == ret) {
+		pr_info("[PM]dump_wakeup_sources_timer_store: timer on\n");
+		framework_display_on = false;
+		printk("[PM]request_suspend_state: (0->3)");
+		ASUSEvtlog("[PM]request_suspend_state: (0->3)");
+		g_unattended_timer_timeout = PM_DUMP_WAKEUP_TIMEOUT_MIN;
+		mod_timer(&dump_wakeup_sources_timer, jiffies + msecs_to_jiffies(g_unattended_timer_timeout));
+	}
 	return error ? error : n;
 }
 

@@ -8,6 +8,7 @@
 #include "smb-lib.h"
 #include "smb-reg.h"
 #include "linux/asusdebug.h"
+
 #include <linux/rtc.h>
 #include <linux/ktime.h>
 #include <linux/alarmtimer.h>
@@ -140,6 +141,7 @@ struct smb_dt_props {
 	bool	hvdcp_disable;
 	bool	auto_recharge_soc;
 	int	wd_bark_time;
+	bool	no_pd;
 };
 
 struct smb2 {

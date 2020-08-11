@@ -903,6 +903,4 @@ config INPUT_TCS3400
           To compile this driver as a module, choose M here. The module will
           be called tcs3400.
 
-source "drivers/input/misc/smtc/Kconfig"
-
 endif

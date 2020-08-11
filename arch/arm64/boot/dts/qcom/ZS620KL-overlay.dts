@@ -26,7 +26,6 @@
 #include "ZS620KL-focaltech-touch.dtsi"
 #include "ZS620KL-camera-sensor.dtsi"
 #include "ZS620KL-gpio-key.dtsi"
-
 #include "ZS620KL-audio-ER2.dtsi"
 #include "ZS620KL-usb-ER3.dtsi"
 #include "ZS620KL-modem-overlay.dtsi"

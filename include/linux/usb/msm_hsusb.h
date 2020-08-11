@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -171,6 +171,7 @@ enum usb_id_state {
  * @extcon_id: Used for ID notification registration.
  * @vbus_nb: Notification callback for VBUS event.
  * @id_nb: Notification callback for ID event.
+ * @extcon_registered: indicates if extcon notifier registered or not.
  * @dpdm_desc: Regulator descriptor for D+ and D- voting.
  * @dpdm_rdev: Regulator class device for dpdm regulator.
  * @dbg_idx: Dynamic debug buffer Index.
@@ -297,6 +298,7 @@ struct msm_otg {
 	struct extcon_dev       *extcon_id;
 	struct notifier_block   vbus_nb;
 	struct notifier_block   id_nb;
+	bool			extcon_registered;
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
 /* Maximum debug message length */
@@ -317,6 +319,7 @@ struct msm_otg {
 	struct work_struct notify_charger_work;
 	struct work_struct extcon_register_work;
 	struct notifier_block psy_nb;
+	bool enable_sdp_check_timer;
 };
 
 struct ci13xxx_platform_data {

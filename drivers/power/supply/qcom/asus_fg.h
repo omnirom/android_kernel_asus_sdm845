@@ -25,6 +25,7 @@ extern int g_bat_reload_cond;
 #define CYCLE_COUNT_FILE_NAME   "/dev/block/bootdevice/by-name/batinfo"
 #define BACKUP_BATINFO_NAME   "/sdcard/.bs"
 #define BACKUP_BATINFO_SIZE   (1024*16)
+#define BAT_SAFETY_FILE_NAME   "/sdcard/bat_safety"
 #define Charging		0
 #define DisCharging		1
 

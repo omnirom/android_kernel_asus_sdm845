@@ -1214,7 +1214,7 @@ static void get_dev_and_dir(const struct sk_buff *skb,
 		BUG();
 	}
 	if (skb->dev && *el_dev != skb->dev) {
-		MT_DEBUG("qtaguid[%d]: skb->dev=%pK %s vs par->%s=%pK %s\n",
+		MT_DEBUG("qtaguid[%d]: skb->dev=%p %s vs par->%s=%p %s\n",
 			 par->hooknum, skb->dev, skb->dev->name,
 			 *direction == IFS_RX ? "in" : "out",  *el_dev,
 			 (*el_dev)->name);
@@ -1343,7 +1343,7 @@ static void if_tag_stat_update(const char *ifname, uid_t uid,
 	}
 	/* It is ok to process data when an iface_entry is inactive */
 
-	MT_DEBUG("qtaguid: tag_stat: stat_update() dev=%s entry=%pK\n",
+	MT_DEBUG("qtaguid: tag_stat: stat_update() dev=%s entry=%p\n",
 		 ifname, iface_entry);
 
 	/*
@@ -1361,7 +1361,7 @@ static void if_tag_stat_update(const char *ifname, uid_t uid,
 		uid_tag = make_tag_from_uid(uid);
 	}
 	MT_DEBUG("qtaguid: tag_stat: stat_update(): "
-		 " looking for tag=0x%llx (uid=%u) in ife=%pK\n",
+		 " looking for tag=0x%llx (uid=%u) in ife=%p\n",
 		 tag, get_uid_from_tag(tag), iface_entry);
 	/* Loop over tag list under this interface for {acct_tag,uid_tag} */
 	spin_lock_bh(&iface_entry->tag_stat_list_lock);
@@ -1620,7 +1620,7 @@ static struct sock *qtaguid_find_sk(const struct sk_buff *skb,
 	struct sock *sk;
 	unsigned int hook_mask = (1 << par->hooknum);
 
-	MT_DEBUG("qtaguid[%d]: find_sk(skb=%pK) family=%d\n",
+	MT_DEBUG("qtaguid[%d]: find_sk(skb=%p) family=%d\n",
 		 par->hooknum, skb, par->family);
 
 	/*
@@ -1642,7 +1642,7 @@ static struct sock *qtaguid_find_sk(const struct sk_buff *skb,
 	}
 
 	if (sk) {
-		MT_DEBUG("qtaguid[%d]: %pK->sk_proto=%u->sk_state=%d\n",
+		MT_DEBUG("qtaguid[%d]: %p->sk_proto=%u->sk_state=%d\n",
 			 par->hooknum, sk, sk->sk_protocol, sk->sk_state);
 	}
 	return sk;
@@ -1799,7 +1799,7 @@ static bool qtaguid_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		kgid_t gid_max = make_kgid(&init_user_ns, info->gid_max);
 		set_sk_callback_lock = true;
 		read_lock_bh(&sk->sk_callback_lock);
-		MT_DEBUG("qtaguid[%d]: sk=%pK->sk_socket=%pK->file=%pK\n",
+		MT_DEBUG("qtaguid[%d]: sk=%p->sk_socket=%p->file=%p\n",
 			 par->hooknum, sk, sk->sk_socket,
 			 sk->sk_socket ? sk->sk_socket->file : (void *)-1LL);
 		filp = sk->sk_socket ? sk->sk_socket->file : NULL;

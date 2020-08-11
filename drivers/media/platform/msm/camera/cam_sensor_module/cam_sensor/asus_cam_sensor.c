@@ -232,7 +232,6 @@ static void sensors_res_create(void)
 
 //camera_res ---
 
-
 static int temperature_proc_read(struct seq_file *buf, void *v)
 {
 	int32_t rc = 0;
@@ -1381,6 +1380,59 @@ void module_changed_create(uint16_t camera_id)
 
 //Module Changed ----
 
+//app name for cameraserver to set +++
+
+#define APP_NAME "driver/cam_app_name"
+static char g_app_name[512];
+
+static int app_name_read(struct seq_file *buf, void *v)
+{
+	char* app_name = (char *)buf->private;
+	seq_printf(buf, "%s\n",app_name);
+	return 0;
+}
+
+static int app_name_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, app_name_read, PDE_DATA(inode));
+}
+
+static ssize_t app_name_write(struct file *dev, const char *buf, size_t len, loff_t *ppos)
+{
+	ssize_t ret_len;
+	char messages[512]="";
+
+	char *app_name = PDE_DATA(file_inode(dev));
+
+	ret_len = len;
+	if (len > 512) {
+		len = 512;
+	}
+	if (copy_from_user(messages, buf, len)) {
+		pr_err("%s command fail !!\n", __func__);
+		return -EFAULT;
+	}
+
+	sscanf(messages, "%s", app_name);
+
+	return ret_len;
+}
+
+static const struct file_operations app_name_proc_fops = {
+	.owner		= THIS_MODULE,
+	.open		= app_name_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+	.write		= app_name_write,
+};
+
+void app_name_create(void)
+{
+	create_proc_file(APP_NAME,&app_name_proc_fops,g_app_name);
+}
+//app name for cameraserver to set ---
+
 void asus_cam_sensor_init(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	if(!s_ctrl)
@@ -1417,6 +1469,7 @@ void asus_cam_sensor_init(struct cam_sensor_ctrl_t *s_ctrl)
 			sensor_i2c_create();//for debug
 			eeprom_i2c_create();//for debug
 			sensors_res_create();//for shipping image
+			app_name_create();
 		}
 		pr_info("CAMERA ID %d, Sensor id 0x%X X\n",s_ctrl->id,g_sensor_id[s_ctrl->id]);
 		g_sensor_init_state[s_ctrl->id] = 1;
